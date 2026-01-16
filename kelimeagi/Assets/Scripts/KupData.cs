@@ -1,68 +1,67 @@
 using UnityEngine;
-using TMPro; // Yazı işlemleri için gerekli
-using UnityEngine.UI; // Renk değişimi için gerekli
+using TMPro;
+using UnityEngine.UI;
 
 public class KupData : MonoBehaviour
 {
     [Header("Bileşenler")]
-    public TMP_Text harfYazisi; // Harfin yazacağı yer
-    public Image kupGoruntusu;  // Rengini değiştireceğimiz görsel (Image)
+    public TMP_Text harfYazisi;
+    public Image kupGoruntusu;
 
     [HideInInspector]
-    public char mevcutHarf; // Hafızada tuttuğumuz harf
+    public char mevcutHarf;
 
     void Awake()
     {
-        // Eğer Inspector'dan atanmadıysa, otomatik bul
         if (harfYazisi == null)
         {
             harfYazisi = GetComponentInChildren<TMP_Text>();
-            if (harfYazisi == null)
-            {
-                Debug.LogError($"{gameObject.name}: TMP_Text bileşeni bulunamadı!");
-            }
         }
 
         if (kupGoruntusu == null)
         {
-            // Önce kendi üzerinde ara, sonra child'larda
             kupGoruntusu = GetComponent<Image>();
             if (kupGoruntusu == null)
             {
                 kupGoruntusu = GetComponentInChildren<Image>();
             }
-            
-            if (kupGoruntusu == null)
-            {
-                Debug.LogError($"{gameObject.name}: Image bileşeni bulunamadı!");
-            }
-            else
-            {
-                Debug.Log($"{gameObject.name}: Image bulundu -> {kupGoruntusu.gameObject.name}");
-            }
         }
     }
 
-    // Bu fonksiyonu Yönetici çağıracak ve "Şu harfi al, şu renge bürün" diyecek
-    public void VeriAta(char gelenHarf, Color gelenRenk)
+    /// <summary>
+    /// Harfi ve sprite'ı atar (YENİ - sprite bazlı)
+    /// </summary>
+    public void VeriAta(char gelenHarf, Sprite gelenSprite)
     {
-        // 1. Harfi ayarla
         mevcutHarf = gelenHarf;
+        
         if (harfYazisi != null)
         {
             harfYazisi.text = gelenHarf.ToString();
         }
 
-        // 2. Rengi ayarla
+        if (kupGoruntusu != null && gelenSprite != null)
+        {
+            kupGoruntusu.sprite = gelenSprite;
+            kupGoruntusu.color = Color.white; // Sprite'ın orijinal renkleri korunsun
+        }
+    }
+
+    /// <summary>
+    /// Eski metod - renk bazlı (geriye uyumluluk için)
+    /// </summary>
+    public void VeriAta(char gelenHarf, Color gelenRenk)
+    {
+        mevcutHarf = gelenHarf;
+        
+        if (harfYazisi != null)
+        {
+            harfYazisi.text = gelenHarf.ToString();
+        }
+
         if (kupGoruntusu != null)
         {
-            Debug.Log($"{gameObject.name}: Renk atanıyor -> {gelenRenk}");
             kupGoruntusu.color = gelenRenk;
-            Debug.Log($"{gameObject.name}: Yeni renk -> {kupGoruntusu.color}");
-        }
-        else
-        {
-            Debug.LogError($"{gameObject.name}: kupGoruntusu NULL, renk atanamadı!");
         }
     }
 }

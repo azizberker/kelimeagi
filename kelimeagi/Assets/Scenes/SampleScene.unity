@@ -485,8 +485,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GridGenerator
   kupPrefabi: {fileID: 4926021518815369080, guid: 797ccd7e5fd40954a881371f380b5413, type: 3}
   gridKutusu: {fileID: 195358450}
-  renkListesi:
-  - {r: 1, g: 0, b: 0.020209312, a: 1}
+  kupSpriteleri:
+  - {fileID: -855298285791758126, guid: 71277ab5b7aae0b438e872b977896d90, type: 3}
+  - {fileID: 6937817954938267909, guid: 9a5e9575b83eb444c937f124aeb219d2, type: 3}
+  - {fileID: -6470460504253458178, guid: 4eba2c01743d9f84e8f4e90b768597a9, type: 3}
+  - {fileID: -4178046375966092550, guid: 9c31fdb094d64ca4dbbd62d5ed077733, type: 3}
+  - {fileID: 4130640169021434097, guid: 1bea4f6a217554b4c9dded74a3a8e24e, type: 3}
+  - {fileID: 3465286685962602723, guid: d92e99eae81b54d4ab850f5a17a33616, type: 3}
+  - {fileID: 7028616704906629411, guid: 048dcca84cb07594c8a632e8f17359d1, type: 3}
+  - {fileID: 8288426215254106694, guid: bcdbd0252977d39468cd0bc45bd58f22, type: 3}
+  - {fileID: 4113829005332862926, guid: 0466d60d86171bc4da0067a760dcdb84, type: 3}
+  - {fileID: -5099292496197868168, guid: ec8a002c4c2216441876c113e752d1f6, type: 3}
+  - {fileID: -2966200626249415253, guid: b5232088371040642bd4a547de4648f4, type: 3}
+  - {fileID: -1540426309290004842, guid: 25958ebed9012a749beb8a1ebc10dacb, type: 3}
+  - {fileID: 8389134475083476877, guid: e22147fa102196e4b9c9b6b3642d2799, type: 3}
+  - {fileID: -6270953770400647376, guid: f3cb712093e327b459c6e53ceea47db1, type: 3}
+  - {fileID: 4349915267927364619, guid: 323b75f853873b04faefd2bb07424ca3, type: 3}
   slotAnimasyonSuresi: 1.5
   sutunGecikme: 0.2
   harfDegismeSuresi: 0.08
@@ -520,7 +534,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a0a9099b415bef4a884e4c544711ff3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KelimeVeritabani
-  kelimeDosyasi: {fileID: 0}
+  kelimeDosyasi: {fileID: 4900000, guid: 496363f3238aec940b57f996a9501151, type: 3}
   maxKelimeUzunlugu: 7
   minKelimeUzunlugu: 2
 --- !u!114 &1086829614
