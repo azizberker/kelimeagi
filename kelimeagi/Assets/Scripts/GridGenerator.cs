@@ -240,4 +240,34 @@ public class GridGenerator : MonoBehaviour
     {
         HarfleriYenidenOlustur();
     }
+
+    // UILineDrawer için yardımcı fonksiyonlar
+    public KupData GetKupAtIndex(int index)
+    {
+        if (index >= 0 && index < tumKupler.Count)
+        {
+            return tumKupler[index];
+        }
+        return null;
+    }
+
+    public char RastgeleHarfAl()
+    {
+        if (HarfYoneticisi.Instance != null)
+        {
+            char[] harfler = HarfYoneticisi.Instance.GridIcinHarfUret(1, 0);
+            return harfler[0];
+        }
+        return alfabe[Random.Range(0, alfabe.Length)];
+    }
+
+    public Color RastgeleRenkAl()
+    {
+        return RastgeleRenkSec();
+    }
+
+    public List<KupData> TumKuplerAl()
+    {
+        return tumKupler;
+    }
 }

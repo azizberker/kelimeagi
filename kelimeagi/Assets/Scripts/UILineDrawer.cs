@@ -257,7 +257,269 @@ public class UILineDrawer : MonoBehaviour
         // Trail'i hemen temizle
         TemizleTrail();
 
+        // Kelime doğrulama
+        Debug.Log($"Seçili küp sayısı: {seciliKupler.Count}");
+        Debug.Log($"KelimeVeritabani Instance: {(KelimeVeritabani.Instance != null ? "VAR" : "YOK")}");
+        
+        if (seciliKupler.Count >= 2)
+        {
+            string kelimeUpper = seciliKelime.ToUpper();
+            Debug.Log($"Kontrol edilen kelime (uppercase): '{kelimeUpper}'");
+            
+            if (KelimeVeritabani.Instance != null)
+            {
+                bool gecerliMi = KelimeVeritabani.Instance.KelimeGecerliMi(kelimeUpper);
+                Debug.Log($"Kelime geçerli mi: {gecerliMi}");
+                
+                if (gecerliMi)
+                {
+                    Debug.Log($"✓ Geçerli kelime: {kelimeUpper} - Küpler patlatılıyor!");
+                    // Küpleri patlat
+                    StartCoroutine(KupleriPatlat(new List<KupData>(seciliKupler)));
+                }
+                else
+                {
+                    Debug.Log($"✗ Geçersiz kelime: {kelimeUpper}");
+                    // Yanlış kelime efekti (kırmızı titreme)
+                    StartCoroutine(YanlisKelimeEfekti());
+                }
+            }
+            else
+            {
+                Debug.LogError("KelimeVeritabani.Instance NULL! Kelime doğrulama yapılamıyor.");
+            }
+        }
+        else
+        {
+            Debug.Log("Yeterli küp seçilmedi (minimum 2 küp gerekli)");
+        }
+
         StartCoroutine(CizgiyiAnimasyonluTemizle());
+    }
+
+    System.Collections.IEnumerator KupleriPatlat(List<KupData> patlayanKupler)
+    {
+        // 1. Patlama efekti
+        foreach (KupData kup in patlayanKupler)
+        {
+            if (kup != null)
+            {
+                StartCoroutine(KupPatlamaAnimasyonu(kup));
+            }
+        }
+        
+        // Patlama animasyonunun bitmesini bekle
+        yield return new WaitForSeconds(0.4f);
+        
+        // 2. Grid'i yeniden düzenle - en alttaki küpü kaldır
+        yield return StartCoroutine(GridiYenidenDuzenle(patlayanKupler));
+    }
+
+    System.Collections.IEnumerator KupPatlamaAnimasyonu(KupData kup)
+    {
+        RectTransform rect = kup.GetComponent<RectTransform>();
+        Image kupImg = kup.kupGoruntusu;
+        TMP_Text harfText = kup.harfYazisi;
+        
+        float sure = 0.35f;
+        float gecen = 0f;
+        
+        Vector3 baslangicOlcek = rect.localScale;
+        Vector3 baslangicPozisyon = rect.anchoredPosition;
+        
+        while (gecen < sure)
+        {
+            gecen += Time.deltaTime;
+            float t = gecen / sure;
+            
+            // Büyüme + döndürme + solma
+            float olcek = Mathf.Lerp(1f, 1.8f, t);
+            rect.localScale = baslangicOlcek * olcek;
+            
+            // Döndürme
+            rect.localRotation = Quaternion.Euler(0, 0, t * 180f);
+            
+            // Solma
+            float alpha = Mathf.Lerp(1f, 0f, t);
+            if (kupImg != null)
+            {
+                Color c = kupImg.color;
+                c.a = alpha;
+                kupImg.color = c;
+            }
+            if (harfText != null)
+            {
+                Color c = harfText.color;
+                c.a = alpha;
+                harfText.color = c;
+            }
+            
+            yield return null;
+        }
+        
+        // Küpü gizle
+        kup.gameObject.SetActive(false);
+    }
+
+    System.Collections.IEnumerator GridiYenidenDuzenle(List<KupData> patlayanKupler)
+    {
+        GridGenerator gridGen = FindAnyObjectByType<GridGenerator>();
+        if (gridGen == null) yield break;
+        
+        // En alttaki satırdaki küpleri bul ve yok et
+        int sutunSayisi = gridGen.sutunSayisi;
+        int satirSayisi = gridGen.satirSayisi;
+        
+        // Her sütun için yukarıdan aşağı işle
+        for (int sutun = 0; sutun < sutunSayisi; sutun++)
+        {
+            // Bu sütunda patlayan küp var mı?
+            List<int> patlayanSatirlar = new List<int>();
+            
+            for (int satir = 0; satir < satirSayisi; satir++)
+            {
+                int index = satir * sutunSayisi + sutun;
+                KupData kup = gridGen.GetKupAtIndex(index);
+                
+                if (kup != null && patlayanKupler.Contains(kup))
+                {
+                    patlayanSatirlar.Add(satir);
+                }
+            }
+            
+            if (patlayanSatirlar.Count > 0)
+            {
+                // Bu sütunda düşme animasyonu ve yenileme yap
+                StartCoroutine(SutunDusurAnimasyonu(sutun, patlayanSatirlar.Count, gridGen));
+            }
+        }
+        
+        yield return new WaitForSeconds(0.8f);
+    }
+
+    System.Collections.IEnumerator SutunDusurAnimasyonu(int sutunIndex, int patlayanSayisi, GridGenerator gridGen)
+    {
+        int sutunSayisi = gridGen.sutunSayisi;
+        int satirSayisi = gridGen.satirSayisi;
+        
+        // Aktif küpleri bul ve yukarıdan aşağı sırala
+        List<KupData> aktifKupler = new List<KupData>();
+        
+        for (int satir = satirSayisi - 1; satir >= 0; satir--)
+        {
+            int index = satir * sutunSayisi + sutunIndex;
+            KupData kup = gridGen.GetKupAtIndex(index);
+            
+            if (kup != null && kup.gameObject.activeSelf)
+            {
+                aktifKupler.Add(kup);
+            }
+        }
+        
+        // En alttaki küpleri (patlayanSayisi kadar) yeniden oluştur
+        for (int satir = satirSayisi - 1; satir >= satirSayisi - patlayanSayisi; satir--)
+        {
+            int index = satir * sutunSayisi + sutunIndex;
+            KupData kup = gridGen.GetKupAtIndex(index);
+            
+            if (kup != null)
+            {
+                // Küpü yeniden etkinleştir ve yeni harf/renk ata
+                kup.gameObject.SetActive(true);
+                
+                RectTransform rect = kup.GetComponent<RectTransform>();
+                Image kupImg = kup.kupGoruntusu;
+                TMP_Text harfText = kup.harfYazisi;
+                
+                // Ölçeği ve rotasyonu sıfırla
+                rect.localScale = Vector3.zero;
+                rect.localRotation = Quaternion.identity;
+                
+                // Yeni harf ve renk ata
+                char yeniHarf = gridGen.RastgeleHarfAl();
+                Color yeniRenk = gridGen.RastgeleRenkAl();
+                kup.VeriAta(yeniHarf, yeniRenk);
+                
+                // Alpha'yı sıfırla
+                if (kupImg != null)
+                {
+                    Color c = kupImg.color;
+                    c.a = 1f;
+                    kupImg.color = c;
+                }
+                if (harfText != null)
+                {
+                    Color c = harfText.color;
+                    c.a = 1f;
+                    harfText.color = c;
+                }
+                
+                // Bounce animasyonu
+                StartCoroutine(KupBelirmeAnimasyonu(kup));
+                
+                yield return new WaitForSeconds(0.1f);
+            }
+        }
+    }
+
+    System.Collections.IEnumerator KupBelirmeAnimasyonu(KupData kup)
+    {
+        RectTransform rect = kup.GetComponent<RectTransform>();
+        
+        float sure = 0.35f;
+        float gecen = 0f;
+        
+        while (gecen < sure)
+        {
+            gecen += Time.deltaTime;
+            float t = gecen / sure;
+            
+            // Bounce easing
+            float scale;
+            if (t < 0.6f)
+            {
+                scale = Mathf.Lerp(0f, 1.2f, t / 0.6f);
+            }
+            else
+            {
+                float bounceT = (t - 0.6f) / 0.4f;
+                scale = Mathf.Lerp(1.2f, 1f, bounceT);
+            }
+            
+            rect.localScale = Vector3.one * scale;
+            yield return null;
+        }
+        
+        rect.localScale = Vector3.one;
+    }
+
+    System.Collections.IEnumerator YanlisKelimeEfekti()
+    {
+        // Seçili küpleri kırmızı titret
+        List<KupData> kupler = new List<KupData>(seciliKupler);
+        
+        for (int i = 0; i < 3; i++)
+        {
+            // Kırmızıya dön
+            foreach (KupData kup in kupler)
+            {
+                if (kup != null && kup.kupGoruntusu != null)
+                {
+                    kup.kupGoruntusu.color = new Color(1f, 0.3f, 0.3f, 1f);
+                }
+            }
+            yield return new WaitForSeconds(0.1f);
+            
+            // Normal renge dön
+            foreach (KupData kup in kupler)
+            {
+                if (kup != null && kup.kupGoruntusu != null)
+                {
+                    kup.kupGoruntusu.color = Color.white;
+                }
+            }
+            yield return new WaitForSeconds(0.1f);
+        }
     }
 
     System.Collections.IEnumerator CizgiyiAnimasyonluTemizle()
