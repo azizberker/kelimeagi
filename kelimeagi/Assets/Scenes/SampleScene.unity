@@ -429,12 +429,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 27cb7bc6d2d7fa5448b1d0ccca096684, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UILineDrawer
-  cizgiKalinligi: 15
-  cizgiRengi: {r: 1, g: 0.8, b: 0, a: 1}
-  glowRengi: {r: 1, g: 0.6, b: 0, a: 0.3}
-  glowKatmanSayisi: 3
-  glowGenislemeCarpani: 2
-  kupSecmeSuresi: 0.5
+  cizgiKalinligi: 20
+  cizgiRengi: {r: 1, g: 1, b: 1, a: 1}
+  glowRengi: {r: 1, g: 0.42834583, b: 0, a: 1}
+  glowKatmanSayisi: 26
+  glowGenislemeCarpani: 18.7
+  kupSecmeSuresi: 0.2
   seciliKelimeYazisi: {fileID: 1218700148}
   anaCanvas: {fileID: 1800089751}
 --- !u!4 &734141918
@@ -462,6 +462,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1086829612}
   - component: {fileID: 1086829611}
+  - component: {fileID: 1086829614}
+  - component: {fileID: 1086829613}
   m_Layer: 0
   m_Name: Game_Manager
   m_TagString: Untagged
@@ -484,12 +486,13 @@ MonoBehaviour:
   kupPrefabi: {fileID: 4926021518815369080, guid: 797ccd7e5fd40954a881371f380b5413, type: 3}
   gridKutusu: {fileID: 195358450}
   renkListesi:
-  - {r: 0.8926573, g: 0, b: 1, a: 1}
-  - {r: 1, g: 0.41037738, b: 0.41037738, a: 1}
-  - {r: 0.30113026, g: 0.9528302, b: 0.3220234, a: 1}
-  - {r: 0.8507075, g: 0.8773585, b: 0.1779548, a: 0}
-  - {r: 0, g: 0.16973057, b: 0.9056604, a: 1}
-  - {r: 0, g: 0.89867353, b: 1, a: 1}
+  - {r: 1, g: 0, b: 0.020209312, a: 1}
+  slotAnimasyonSuresi: 1.5
+  sutunGecikme: 0.2
+  harfDegismeSuresi: 0.08
+  satirSayisi: 5
+  sutunSayisi: 5
+  minKelimeSayisi: 3
 --- !u!4 &1086829612
 Transform:
   m_ObjectHideFlags: 0
@@ -505,6 +508,33 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1086829613
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1086829610}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a0a9099b415bef4a884e4c544711ff3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KelimeVeritabani
+  kelimeDosyasi: {fileID: 0}
+  maxKelimeUzunlugu: 7
+  minKelimeUzunlugu: 2
+--- !u!114 &1086829614
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1086829610}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e570021e09ed8d4abcd9464a8013c67, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HarfYoneticisi
 --- !u!1 &1218700147
 GameObject:
   m_ObjectHideFlags: 0
@@ -639,7 +669,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 127, y: 784}
+  m_AnchoredPosition: {x: 127, y: -625}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1528465151
