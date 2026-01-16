@@ -12,24 +12,23 @@ public class GridGenerator : MonoBehaviour
     [Header("Renk Paleti")]
     public Color[] renkListesi;
     
-    [Header("Animasyon Ayarları")]
-    public float slotAnimasyonSuresi = 1.5f;
-    public float satirGecikme = 0.1f;
-    public int slotDonusSayisi = 3;
+    [Header("Slot Animasyon Ayarları")]
+    public float slotAnimasyonSuresi = 2f;
+    public float sutunGecikme = 0.2f;
+    public float harfDegismeSuresi = 0.06f;
     
     [Header("Grid Ayarları")]
     public int satirSayisi = 5;
     public int sutunSayisi = 5;
-    public int minKelimeSayisi = 3; // Minimum oluşturulabilir kelime sayısı
+    public int minKelimeSayisi = 3;
 
-    // Oluşturulan küpler
     private List<KupData> tumKupler = new List<KupData>();
     private char[] mevcutHarfler;
     private bool animasyonDevam = false;
+    private string alfabe = "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ";
 
     void Start()
     {
-        // Yönetici scriptlerinin yüklenmesini bekle
         StartCoroutine(BaslangicGecikme());
     }
 
@@ -43,7 +42,6 @@ public class GridGenerator : MonoBehaviour
     {
         int toplamKup = satirSayisi * sutunSayisi;
         
-        // Küpleri oluştur
         for (int i = 0; i < toplamKup; i++)
         {
             GameObject yeniKup = Instantiate(kupPrefabi);
@@ -53,20 +51,21 @@ public class GridGenerator : MonoBehaviour
             if (veriScripti != null)
             {
                 tumKupler.Add(veriScripti);
+                
+                // Başlangıç rengi ata
+                Color baslangicRenk = RastgeleRenkSec();
+                char baslangicHarf = alfabe[Random.Range(0, alfabe.Length)];
+                veriScripti.VeriAta(baslangicHarf, baslangicRenk);
             }
         }
         
-        // İlk harfleri ata
+        // Slot animasyonu ile başla
         HarfleriYenidenOlustur();
     }
 
-    /// <summary>
-    /// Harfleri yeniden oluşturur ve kelime kontrolü yapar
-    /// </summary>
     public void HarfleriYenidenOlustur()
     {
         if (animasyonDevam) return;
-        
         StartCoroutine(SlotMakinesAnimasyonu());
     }
 
@@ -77,144 +76,148 @@ public class GridGenerator : MonoBehaviour
         int denemeSayisi = 0;
         bool gecerliGrid = false;
         
+        // Geçerli harfler üret
         do
         {
             denemeSayisi++;
             
-            // Yeni harfler üret
             if (HarfYoneticisi.Instance != null)
             {
                 mevcutHarfler = HarfYoneticisi.Instance.GridIcinHarfUret(tumKupler.Count, 7);
             }
             else
             {
-                // Yedek: rastgele harf
                 mevcutHarfler = RastgeleHarfUret(tumKupler.Count);
             }
             
-            // Kelime kontrolü yap
             if (KelimeVeritabani.Instance != null)
             {
                 gecerliGrid = KelimeVeritabani.Instance.GridGecerliMi(mevcutHarfler, minKelimeSayisi);
             }
             else
             {
-                gecerliGrid = true; // Veritabanı yoksa geçerli kabul et
-            }
-            
-            if (!gecerliGrid)
-            {
-                Debug.Log($"Grid geçersiz (Deneme {denemeSayisi}), yeniden oluşturuluyor...");
+                gecerliGrid = true;
             }
             
         } while (!gecerliGrid && denemeSayisi < maxDeneme);
         
-        if (!gecerliGrid)
+        // Her sütun için slot animasyonu başlat
+        for (int sutun = 0; sutun < sutunSayisi; sutun++)
         {
-            Debug.LogWarning("Maksimum deneme sayısına ulaşıldı, grid kabul edildi.");
+            StartCoroutine(SutunSlotAnimasyonu(sutun));
+            yield return new WaitForSeconds(sutunGecikme);
         }
         
-        // Slot makinesi animasyonu - satır satır
-        for (int satir = 0; satir < satirSayisi; satir++)
-        {
-            // Bu satırdaki küpleri bul
-            List<KupData> satirKupleri = new List<KupData>();
-            for (int sutun = 0; sutun < sutunSayisi; sutun++)
-            {
-                int index = satir * sutunSayisi + sutun;
-                if (index < tumKupler.Count)
-                {
-                    satirKupleri.Add(tumKupler[index]);
-                }
-            }
-            
-            // Bu satır için slot animasyonu başlat
-            StartCoroutine(SatirSlotAnimasyonu(satirKupleri, satir));
-            
-            // Bir sonraki satır için bekle
-            yield return new WaitForSeconds(satirGecikme);
-        }
-        
-        // Tüm animasyonların bitmesini bekle
-        yield return new WaitForSeconds(slotAnimasyonSuresi);
+        // Animasyonların bitmesini bekle
+        yield return new WaitForSeconds(slotAnimasyonSuresi + 0.3f);
         
         animasyonDevam = false;
         Debug.Log("Grid oluşturuldu!");
     }
 
-    IEnumerator SatirSlotAnimasyonu(List<KupData> kupler, int satirIndex)
+    IEnumerator SutunSlotAnimasyonu(int sutunIndex)
     {
-        float gecenSure = 0f;
-        int donusSayaci = 0;
-        string alfabe = "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ";
+        // Bu sütundaki küpleri bul
+        List<KupData> sutunKupleri = new List<KupData>();
         
-        // Slot döndürme animasyonu
+        for (int satir = 0; satir < satirSayisi; satir++)
+        {
+            int index = satir * sutunSayisi + sutunIndex;
+            if (index < tumKupler.Count)
+            {
+                sutunKupleri.Add(tumKupler[index]);
+            }
+        }
+        
+        float gecenSure = 0f;
+        float sonHarfDegisme = 0f;
+        
+        // Slot dönme animasyonu (sadece harf ve renk değişir, pozisyon değişmez)
         while (gecenSure < slotAnimasyonSuresi)
         {
             gecenSure += Time.deltaTime;
+            float ilerleme = gecenSure / slotAnimasyonSuresi;
             
-            // Animasyon hızı (başta hızlı, sona doğru yavaşlar)
-            float hiz = Mathf.Lerp(0.05f, 0.3f, gecenSure / slotAnimasyonSuresi);
+            // Yavaşlama eğrisi (başta hızlı, sonda yavaş)
+            float hizCarpani = Mathf.Lerp(1f, 0.05f, ilerleme * ilerleme);
+            float dinamikHarfSuresi = harfDegismeSuresi / hizCarpani;
             
-            if (Time.time % hiz < Time.deltaTime)
+            // Harfleri değiştir
+            if (gecenSure - sonHarfDegisme > dinamikHarfSuresi)
             {
-                donusSayaci++;
+                sonHarfDegisme = gecenSure;
                 
-                foreach (KupData kup in kupler)
+                for (int i = 0; i < sutunKupleri.Count; i++)
                 {
-                    // Rastgele harf göster (dönerken)
+                    // Rastgele harf ve renk
                     char rastgeleHarf = alfabe[Random.Range(0, alfabe.Length)];
                     Color rastgeleRenk = RastgeleRenkSec();
-                    kup.VeriAta(rastgeleHarf, rastgeleRenk);
+                    sutunKupleri[i].VeriAta(rastgeleHarf, rastgeleRenk);
+                    
+                    // Küçük ölçek efekti (titreme)
+                    RectTransform rect = sutunKupleri[i].GetComponent<RectTransform>();
+                    if (rect != null)
+                    {
+                        float scale = 1f + Random.Range(-0.05f, 0.05f) * hizCarpani;
+                        rect.localScale = Vector3.one * scale;
+                    }
                 }
             }
             
             yield return null;
         }
         
-        // Son harfleri ata
-        for (int i = 0; i < kupler.Count; i++)
+        // Son harfleri ata ve yerleşme animasyonu
+        for (int i = 0; i < sutunKupleri.Count; i++)
         {
-            int globalIndex = satirIndex * sutunSayisi + i;
+            int globalIndex = i * sutunSayisi + sutunIndex;
+            
             if (globalIndex < mevcutHarfler.Length)
             {
-                char sonHarf = mevcutHarfler[globalIndex];
-                Color sonRenk = RastgeleRenkSec();
-                
-                // Son atama animasyonu (hafif büyüme efekti)
-                StartCoroutine(SonAtamaAnimasyonu(kupler[i], sonHarf, sonRenk));
+                StartCoroutine(SonYerlesmeAnimasyonu(sutunKupleri[i], 
+                    mevcutHarfler[globalIndex], RastgeleRenkSec()));
             }
         }
     }
 
-    IEnumerator SonAtamaAnimasyonu(KupData kup, char harf, Color renk)
+    IEnumerator SonYerlesmeAnimasyonu(KupData kup, char harf, Color renk)
     {
         RectTransform rect = kup.GetComponent<RectTransform>();
-        Vector3 orijinalOlcek = rect.localScale;
-        
-        // Küçül
-        rect.localScale = orijinalOlcek * 0.8f;
         
         // Harfi ata
         kup.VeriAta(harf, renk);
         
-        // Büyü (bounce efekti)
-        float sure = 0.2f;
+        // Bounce ölçek animasyonu
+        float sure = 0.25f;
         float gecen = 0f;
+        
+        // Önce küçült
+        rect.localScale = Vector3.one * 0.7f;
         
         while (gecen < sure)
         {
             gecen += Time.deltaTime;
             float t = gecen / sure;
             
-            // Bounce easing
-            float bounce = 1f + Mathf.Sin(t * Mathf.PI) * 0.2f;
-            rect.localScale = orijinalOlcek * bounce;
+            // Elastic/Bounce easing
+            float scale;
+            if (t < 0.5f)
+            {
+                // Büyüme
+                scale = Mathf.Lerp(0.7f, 1.15f, t * 2f);
+            }
+            else
+            {
+                // Yerine oturma
+                float bounceT = (t - 0.5f) * 2f;
+                scale = Mathf.Lerp(1.15f, 1f, bounceT);
+            }
             
+            rect.localScale = Vector3.one * scale;
             yield return null;
         }
         
-        rect.localScale = orijinalOlcek;
+        rect.localScale = Vector3.one;
     }
 
     Color RastgeleRenkSec()
@@ -230,28 +233,19 @@ public class GridGenerator : MonoBehaviour
 
     char[] RastgeleHarfUret(int adet)
     {
-        string alfabe = "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ";
         char[] harfler = new char[adet];
-        
         for (int i = 0; i < adet; i++)
         {
             harfler[i] = alfabe[Random.Range(0, alfabe.Length)];
         }
-        
         return harfler;
     }
 
-    /// <summary>
-    /// Mevcut harfleri döndürür
-    /// </summary>
     public char[] MevcutHarfleriAl()
     {
         return mevcutHarfler;
     }
 
-    /// <summary>
-    /// Grid'i yeniler (dışarıdan çağrılabilir)
-    /// </summary>
     public void GridiYenile()
     {
         HarfleriYenidenOlustur();
