@@ -241,7 +241,9 @@ public class GridGenerator : MonoBehaviour
         HarfleriYenidenOlustur();
     }
 
-    // UILineDrawer için yardımcı fonksiyonlar
+    // ==================== SWAP MEKANİĞİ İÇİN YARDIMCI METODLAR ====================
+
+    // Index'e göre küp al
     public KupData GetKupAtIndex(int index)
     {
         if (index >= 0 && index < tumKupler.Count)
@@ -249,6 +251,70 @@ public class GridGenerator : MonoBehaviour
             return tumKupler[index];
         }
         return null;
+    }
+
+    // Satır ve sütuna göre küp al
+    public KupData GetKupAtPosition(int satir, int sutun)
+    {
+        if (satir < 0 || satir >= satirSayisi || sutun < 0 || sutun >= sutunSayisi)
+            return null;
+        
+        int index = satir * sutunSayisi + sutun;
+        return GetKupAtIndex(index);
+    }
+
+    // Küpün satır ve sütun pozisyonunu al
+    public Vector2Int GetKupPosition(KupData kup)
+    {
+        int index = tumKupler.IndexOf(kup);
+        if (index < 0) return new Vector2Int(-1, -1);
+        
+        int satir = index / sutunSayisi;
+        int sutun = index % sutunSayisi;
+        return new Vector2Int(satir, sutun);
+    }
+
+    // Bir satırdaki tüm küpleri al
+    public List<KupData> GetSatirdakiKupler(int satir)
+    {
+        List<KupData> kupler = new List<KupData>();
+        if (satir < 0 || satir >= satirSayisi) return kupler;
+        
+        for (int sutun = 0; sutun < sutunSayisi; sutun++)
+        {
+            KupData kup = GetKupAtPosition(satir, sutun);
+            if (kup != null) kupler.Add(kup);
+        }
+        return kupler;
+    }
+
+    // Bir sütundaki tüm küpleri al
+    public List<KupData> GetSutundakiKupler(int sutun)
+    {
+        List<KupData> kupler = new List<KupData>();
+        if (sutun < 0 || sutun >= sutunSayisi) return kupler;
+        
+        for (int satir = 0; satir < satirSayisi; satir++)
+        {
+            KupData kup = GetKupAtPosition(satir, sutun);
+            if (kup != null) kupler.Add(kup);
+        }
+        return kupler;
+    }
+
+    // İki küp komşu mu? (sadece yukarı/aşağı/sağ/sol - çapraz değil)
+    public bool KomsuMu(KupData kup1, KupData kup2)
+    {
+        Vector2Int pos1 = GetKupPosition(kup1);
+        Vector2Int pos2 = GetKupPosition(kup2);
+        
+        if (pos1.x < 0 || pos2.x < 0) return false;
+        
+        int satirFark = Mathf.Abs(pos1.x - pos2.x);
+        int sutunFark = Mathf.Abs(pos1.y - pos2.y);
+        
+        // Sadece yatay veya dikey komşu (çapraz değil)
+        return (satirFark == 1 && sutunFark == 0) || (satirFark == 0 && sutunFark == 1);
     }
 
     public char RastgeleHarfAl()

@@ -8,13 +8,25 @@ using UnityEngine.InputSystem;
 public class UILineDrawer : MonoBehaviour
 {
     [Header("UI Referansları")]
-    public TMP_Text seciliKelimeYazisi;
+    public TMP_Text puanYazisi;
     public Canvas anaCanvas;
 
-    // Seçilen küpler
-    private List<KupData> seciliKupler = new List<KupData>();
+    [Header("Oyun Ayarları")]
+    public int minKelimeUzunluk = 3; // Minimum 3 harf gerekli
+    public float swapSuresi = 0.25f;
+    public float patlamaSuresi = 0.3f;
+
+    // Seçili küp
+    private KupData seciliKup = null;
     private RectTransform canvasRect;
+    private GridGenerator gridGen;
     private GameObject hataPaneli;
+    
+    // Puan
+    private int toplamPuan = 0;
+    
+    // Animasyon kilidi
+    private bool animasyonDevam = false;
 
     void Start()
     {
@@ -30,18 +42,21 @@ public class UILineDrawer : MonoBehaviour
                 canvasRect = anaCanvas.GetComponent<RectTransform>();
             }
         }
+        
+        gridGen = FindAnyObjectByType<GridGenerator>();
+        GuncellePuanYazisi();
     }
 
     void Update()
     {
+        if (animasyonDevam) return;
+        
         bool tiklandiMi = false;
 
-        // Touch kontrolü
         if (Touchscreen.current != null)
         {
             tiklandiMi = Touchscreen.current.primaryTouch.press.wasPressedThisFrame;
         }
-        // Mouse kontrolü
         else if (Mouse.current != null)
         {
             tiklandiMi = Mouse.current.leftButton.wasPressedThisFrame;
@@ -70,20 +85,62 @@ public class UILineDrawer : MonoBehaviour
     {
         KupData tiklananKup = TiklananKupuBul();
         
-        if (tiklananKup != null)
+        if (tiklananKup == null) return;
+        
+        if (seciliKup == null)
         {
-            // Zaten seçiliyse, seçimi kaldır
-            if (seciliKupler.Contains(tiklananKup))
+            SecKupu(tiklananKup);
+        }
+        else if (seciliKup == tiklananKup)
+        {
+            SecimKaldir();
+        }
+        else
+        {
+            if (gridGen != null && gridGen.KomsuMu(seciliKup, tiklananKup))
             {
-                SecimdenKaldir(tiklananKup);
-                Debug.Log($"Küp seçimden çıkarıldı: {tiklananKup.mevcutHarf}");
+                StartCoroutine(SwapYap(seciliKup, tiklananKup));
             }
             else
             {
-                // Yeni küp seç
-                KupuSec(tiklananKup);
-                Debug.Log($"Küp seçildi: {tiklananKup.mevcutHarf}");
+                SecimKaldir();
+                SecKupu(tiklananKup);
             }
+        }
+    }
+
+    void SecKupu(KupData kup)
+    {
+        seciliKup = kup;
+        
+        if (kup.kupGoruntusu != null)
+        {
+            kup.kupGoruntusu.color = new Color(1f, 0.9f, 0.5f, 1f);
+        }
+        
+        RectTransform rect = kup.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            rect.localScale = Vector3.one * 1.1f;
+        }
+    }
+
+    void SecimKaldir()
+    {
+        if (seciliKup != null)
+        {
+            if (seciliKup.kupGoruntusu != null)
+            {
+                seciliKup.kupGoruntusu.color = Color.white;
+            }
+            
+            RectTransform rect = seciliKup.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                rect.localScale = Vector3.one;
+            }
+            
+            seciliKup = null;
         }
     }
 
@@ -112,116 +169,181 @@ public class UILineDrawer : MonoBehaviour
         return null;
     }
 
-    void KupuSec(KupData kup)
+    // ==================== SWAP MEKANİĞİ ====================
+
+    System.Collections.IEnumerator SwapYap(KupData kup1, KupData kup2)
     {
-        seciliKupler.Add(kup);
+        animasyonDevam = true;
+        SecimKaldir();
         
-        // Küpü görsel olarak işaretle (sarı/turuncu tona çevir)
-        if (kup.kupGoruntusu != null)
+        // Swap pozisyonlarını kaydet
+        Vector2Int pos1 = gridGen.GetKupPosition(kup1);
+        Vector2Int pos2 = gridGen.GetKupPosition(kup2);
+        
+        // Harfleri swap et
+        char tempHarf = kup1.mevcutHarf;
+        kup1.mevcutHarf = kup2.mevcutHarf;
+        kup2.mevcutHarf = tempHarf;
+        
+        if (kup1.harfYazisi != null) kup1.harfYazisi.text = kup1.mevcutHarf.ToString();
+        if (kup2.harfYazisi != null) kup2.harfYazisi.text = kup2.mevcutHarf.ToString();
+        
+        // Görsel swap animasyonu
+        RectTransform rect1 = kup1.GetComponent<RectTransform>();
+        RectTransform rect2 = kup2.GetComponent<RectTransform>();
+        Vector2 visualPos1 = rect1.anchoredPosition;
+        Vector2 visualPos2 = rect2.anchoredPosition;
+        
+        yield return StartCoroutine(SwapAnimasyonu(rect1, rect2, visualPos1, visualPos2));
+        
+        // Pozisyonları geri al (harfler değişti, küpler aynı yerde)
+        rect1.anchoredPosition = visualPos1;
+        rect2.anchoredPosition = visualPos2;
+        
+        // SADECE swap yapılan satır ve sütunları kontrol et!
+        HashSet<int> kontrolSatirlari = new HashSet<int> { pos1.x, pos2.x };
+        HashSet<int> kontrolSutunlari = new HashSet<int> { pos1.y, pos2.y };
+        
+        List<KupData> bulunanKelime = KelimeBul(kontrolSatirlari, kontrolSutunlari);
+        
+        if (bulunanKelime.Count >= minKelimeUzunluk)
         {
-            kup.kupGoruntusu.color = new Color(1f, 0.85f, 0.4f, 1f);
+            // Kelime bulundu!
+            Debug.Log($"✓ {bulunanKelime.Count} harfli kelime bulundu!");
+            yield return StartCoroutine(KupleriPatlat(bulunanKelime));
         }
-        
-        GuncelleKelimeYazisi();
-    }
-
-    void SecimdenKaldir(KupData kup)
-    {
-        seciliKupler.Remove(kup);
-        
-        // Görsel olarak seçimi kaldır
-        if (kup.kupGoruntusu != null)
+        else
         {
-            kup.kupGoruntusu.color = Color.white;
-        }
-        
-        GuncelleKelimeYazisi();
-    }
-
-    // Kelimeyi onayla (butondan çağrılabilir)
-    public void KelimeyiOnayla()
-    {
-        if (seciliKupler.Count < 2)
-        {
-            Debug.Log("Yeterli harf seçilmedi (minimum 2)");
-            return;
-        }
-
-        string seciliKelime = SecilenKelimeyiAl();
-        string kelimeUpper = seciliKelime.ToUpper();
-        Debug.Log($"Kontrol edilen kelime: '{kelimeUpper}'");
-
-        if (KelimeVeritabani.Instance != null)
-        {
-            bool gecerliMi = KelimeVeritabani.Instance.KelimeGecerliMi(kelimeUpper);
+            // Kelime yok, geri al
+            Debug.Log("✗ Kelime bulunamadı");
             
-            if (gecerliMi)
+            tempHarf = kup1.mevcutHarf;
+            kup1.mevcutHarf = kup2.mevcutHarf;
+            kup2.mevcutHarf = tempHarf;
+            
+            if (kup1.harfYazisi != null) kup1.harfYazisi.text = kup1.mevcutHarf.ToString();
+            if (kup2.harfYazisi != null) kup2.harfYazisi.text = kup2.mevcutHarf.ToString();
+            
+            StartCoroutine(YanlisSwapEfekti(kup1, kup2));
+        }
+        
+        animasyonDevam = false;
+    }
+
+    System.Collections.IEnumerator SwapAnimasyonu(RectTransform rect1, RectTransform rect2, Vector2 pos1, Vector2 pos2)
+    {
+        float gecen = 0f;
+        
+        while (gecen < swapSuresi)
+        {
+            gecen += Time.deltaTime;
+            float t = Mathf.SmoothStep(0, 1, gecen / swapSuresi);
+            
+            rect1.anchoredPosition = Vector2.Lerp(pos1, pos2, t);
+            rect2.anchoredPosition = Vector2.Lerp(pos2, pos1, t);
+            
+            yield return null;
+        }
+    }
+
+    // ==================== KELİME BULMA ====================
+    
+    // Sadece belirtilen satır ve sütunlarda kelime ara
+    List<KupData> KelimeBul(HashSet<int> satirlar, HashSet<int> sutunlar)
+    {
+        if (gridGen == null) return new List<KupData>();
+        
+        // En uzun kelimeyi bul (sadece bir tane!)
+        List<KupData> enUzunKelime = new List<KupData>();
+        string enUzunKelimeStr = "";
+        
+        // Belirtilen satırları kontrol et
+        foreach (int satir in satirlar)
+        {
+            List<KupData> satirKupleri = gridGen.GetSatirdakiKupler(satir);
+            var (kelimeKupleri, kelimeStr) = EnUzunKelimeyiBul(satirKupleri);
+            
+            if (kelimeKupleri.Count > enUzunKelime.Count)
             {
-                Debug.Log($"✓ Geçerli kelime: {kelimeUpper}");
-                StartCoroutine(EkraniRenklendir(new Color(0f, 1f, 0f, 1f)));
-                StartCoroutine(KupleriPatlat(new List<KupData>(seciliKupler)));
-            }
-            else
-            {
-                Debug.Log($"✗ Geçersiz kelime: {kelimeUpper}");
-                StartCoroutine(YanlisKelimeEfekti());
+                enUzunKelime = kelimeKupleri;
+                enUzunKelimeStr = kelimeStr;
             }
         }
         
-        // Seçimi temizle
-        TemizleSecim();
-    }
-
-    // Seçimi temizle (butondan çağrılabilir)
-    public void SecimiBosalt()
-    {
-        TemizleSecim();
-    }
-
-    void GuncelleKelimeYazisi()
-    {
-        if (seciliKelimeYazisi != null)
+        // Belirtilen sütunları kontrol et
+        foreach (int sutun in sutunlar)
         {
-            seciliKelimeYazisi.text = SecilenKelimeyiAl();
-        }
-    }
-
-    string SecilenKelimeyiAl()
-    {
-        string kelime = "";
-        foreach (KupData kup in seciliKupler)
-        {
-            kelime += kup.mevcutHarf;
-        }
-        return kelime;
-    }
-
-    void TemizleSecim()
-    {
-        // Tüm küplerin rengini sıfırla
-        foreach (KupData kup in seciliKupler)
-        {
-            if (kup != null && kup.kupGoruntusu != null)
+            List<KupData> sutunKupleri = gridGen.GetSutundakiKupler(sutun);
+            var (kelimeKupleri, kelimeStr) = EnUzunKelimeyiBul(sutunKupleri);
+            
+            if (kelimeKupleri.Count > enUzunKelime.Count)
             {
-                kup.kupGoruntusu.color = Color.white;
+                enUzunKelime = kelimeKupleri;
+                enUzunKelimeStr = kelimeStr;
             }
         }
         
-        seciliKupler.Clear();
-
-        if (seciliKelimeYazisi != null)
+        if (enUzunKelime.Count >= minKelimeUzunluk)
         {
-            seciliKelimeYazisi.text = "";
+            Debug.Log($"Kelime bulundu: {enUzunKelimeStr}");
         }
+        
+        return enUzunKelime;
+    }
+    
+    // Bir satır/sütunda en uzun geçerli kelimeyi bul
+    (List<KupData>, string) EnUzunKelimeyiBul(List<KupData> kupler)
+    {
+        List<KupData> enUzunKupleri = new List<KupData>();
+        string enUzunKelime = "";
+        
+        if (kupler.Count < minKelimeUzunluk) return (enUzunKupleri, enUzunKelime);
+        
+        // String oluştur
+        string harfler = "";
+        foreach (var kup in kupler)
+        {
+            harfler += kup.mevcutHarf;
+        }
+        harfler = harfler.ToUpper();
+        
+        // En uzun kelimeden başla, kısa kelimelere doğru git
+        for (int uzunluk = kupler.Count; uzunluk >= minKelimeUzunluk; uzunluk--)
+        {
+            for (int baslangic = 0; baslangic <= kupler.Count - uzunluk; baslangic++)
+            {
+                string altString = harfler.Substring(baslangic, uzunluk);
+                
+                if (KelimeVeritabani.Instance != null && KelimeVeritabani.Instance.KelimeGecerliMi(altString))
+                {
+                    // Bu kelimeyi döndür (en uzun bulundu)
+                    List<KupData> kelimeKupleri = new List<KupData>();
+                    for (int i = baslangic; i < baslangic + uzunluk; i++)
+                    {
+                        kelimeKupleri.Add(kupler[i]);
+                    }
+                    return (kelimeKupleri, altString);
+                }
+            }
+        }
+        
+        return (enUzunKupleri, enUzunKelime);
     }
 
-    // ==================== PATLAMA EFEKTLERİ ====================
+    // ==================== PATLAMA ====================
 
     System.Collections.IEnumerator KupleriPatlat(List<KupData> patlayanKupler)
     {
-        GridGenerator gridGen = FindAnyObjectByType<GridGenerator>();
+        // Puan ekle
+        int kazanilanPuan = patlayanKupler.Count * 10;
+        toplamPuan += kazanilanPuan;
+        GuncellePuanYazisi();
+        Debug.Log($"+{kazanilanPuan} puan! Toplam: {toplamPuan}");
         
-        // 1. Patlama efekti
+        // Yeşil efekt
+        StartCoroutine(EkraniRenklendir(new Color(0f, 1f, 0f, 1f)));
+        
+        // Patlama animasyonu
         foreach (KupData kup in patlayanKupler)
         {
             if (kup != null)
@@ -230,83 +352,41 @@ public class UILineDrawer : MonoBehaviour
             }
         }
         
-        // Patlama animasyonunun bitmesini bekle
-        yield return new WaitForSeconds(0.4f);
+        yield return new WaitForSeconds(patlamaSuresi + 0.1f);
         
-        // 2. Patlayan küpleri doğrudan yenile (aynı pozisyonda yeni harf)
+        // Yeni harfler ver
         foreach (KupData kup in patlayanKupler)
         {
             if (kup != null)
             {
-                // Küpü yeniden etkinleştir
                 kup.gameObject.SetActive(true);
                 
                 RectTransform rect = kup.GetComponent<RectTransform>();
-                Image kupImg = kup.kupGoruntusu;
-                TMP_Text harfText = kup.harfYazisi;
-                
-                // Ölçeği ve rotasyonu sıfırla
                 rect.localScale = Vector3.zero;
                 rect.localRotation = Quaternion.identity;
                 
-                // Yeni harf ve renk ata
-                char yeniHarf = gridGen != null ? gridGen.RastgeleHarfAl() : 'A';
-                Color yeniRenk = gridGen != null ? gridGen.RastgeleRenkAl() : Color.white;
+                char yeniHarf = gridGen.RastgeleHarfAl();
+                Color yeniRenk = gridGen.RastgeleRenkAl();
                 kup.VeriAta(yeniHarf, yeniRenk);
                 
-                // Alpha'yı sıfırla
-                if (kupImg != null)
+                if (kup.kupGoruntusu != null)
                 {
-                    Color c = kupImg.color;
+                    Color c = kup.kupGoruntusu.color;
                     c.a = 1f;
-                    kupImg.color = c;
+                    kup.kupGoruntusu.color = c;
                 }
-                if (harfText != null)
+                if (kup.harfYazisi != null)
                 {
-                    Color c = harfText.color;
+                    Color c = kup.harfYazisi.color;
                     c.a = 1f;
-                    harfText.color = c;
+                    kup.harfYazisi.color = c;
                 }
                 
-                // Bounce animasyonu
                 StartCoroutine(KupBelirmeAnimasyonu(kup));
             }
         }
         
-        yield return new WaitForSeconds(0.4f);
-        
-        // 3. Gridde geçerli kelime olup olmadığını kontrol et
-        if (gridGen != null && KelimeVeritabani.Instance != null)
-        {
-            char[] mevcutHarfler = MevcutGridHarfleriniAl(gridGen);
-            bool gecerliKelimeVar = KelimeVeritabani.Instance.GridGecerliMi(mevcutHarfler, 1);
-            
-            if (!gecerliKelimeVar)
-            {
-                Debug.Log("⚠️ Gridde geçerli kelime yok! Grid yenileniyor...");
-                gridGen.GridiYenile();
-            }
-            else
-            {
-                Debug.Log("✓ Gridde en az 1 geçerli kelime var.");
-            }
-        }
-    }
-
-    char[] MevcutGridHarfleriniAl(GridGenerator gridGen)
-    {
-        List<KupData> tumKupler = gridGen.TumKuplerAl();
-        char[] harfler = new char[tumKupler.Count];
-        
-        for (int i = 0; i < tumKupler.Count; i++)
-        {
-            if (tumKupler[i] != null && tumKupler[i].gameObject.activeSelf)
-            {
-                harfler[i] = tumKupler[i].mevcutHarf;
-            }
-        }
-        
-        return harfler;
+        // ZİNCİRLEME YOK! Sadece bu kelime patlar, biter.
     }
 
     System.Collections.IEnumerator KupPatlamaAnimasyonu(KupData kup)
@@ -315,24 +395,18 @@ public class UILineDrawer : MonoBehaviour
         Image kupImg = kup.kupGoruntusu;
         TMP_Text harfText = kup.harfYazisi;
         
-        float sure = 0.35f;
         float gecen = 0f;
-        
         Vector3 baslangicOlcek = rect.localScale;
         
-        while (gecen < sure)
+        while (gecen < patlamaSuresi)
         {
             gecen += Time.deltaTime;
-            float t = gecen / sure;
+            float t = gecen / patlamaSuresi;
             
-            // Büyüme + döndürme + solma
-            float olcek = Mathf.Lerp(1f, 1.8f, t);
+            float olcek = Mathf.Lerp(1f, 1.5f, t);
             rect.localScale = baslangicOlcek * olcek;
+            rect.localRotation = Quaternion.Euler(0, 0, t * 90f);
             
-            // Döndürme
-            rect.localRotation = Quaternion.Euler(0, 0, t * 180f);
-            
-            // Solma
             float alpha = Mathf.Lerp(1f, 0f, t);
             if (kupImg != null)
             {
@@ -350,7 +424,6 @@ public class UILineDrawer : MonoBehaviour
             yield return null;
         }
         
-        // Küpü gizle
         kup.gameObject.SetActive(false);
     }
 
@@ -358,7 +431,7 @@ public class UILineDrawer : MonoBehaviour
     {
         RectTransform rect = kup.GetComponent<RectTransform>();
         
-        float sure = 0.35f;
+        float sure = 0.3f;
         float gecen = 0f;
         
         while (gecen < sure)
@@ -366,17 +439,9 @@ public class UILineDrawer : MonoBehaviour
             gecen += Time.deltaTime;
             float t = gecen / sure;
             
-            // Bounce easing
-            float scale;
-            if (t < 0.6f)
-            {
-                scale = Mathf.Lerp(0f, 1.2f, t / 0.6f);
-            }
-            else
-            {
-                float bounceT = (t - 0.6f) / 0.4f;
-                scale = Mathf.Lerp(1.2f, 1f, bounceT);
-            }
+            float scale = t < 0.7f 
+                ? Mathf.Lerp(0f, 1.15f, t / 0.7f)
+                : Mathf.Lerp(1.15f, 1f, (t - 0.7f) / 0.3f);
             
             rect.localScale = Vector3.one * scale;
             yield return null;
@@ -385,77 +450,54 @@ public class UILineDrawer : MonoBehaviour
         rect.localScale = Vector3.one;
     }
 
-    // ==================== YANLIŞ KELİME EFEKTİ ====================
+    // ==================== EFEKTLER ====================
 
-    System.Collections.IEnumerator YanlisKelimeEfekti()
+    System.Collections.IEnumerator YanlisSwapEfekti(KupData kup1, KupData kup2)
     {
-        // Ekranı kızart
         StartCoroutine(EkraniRenklendir(new Color(1f, 0f, 0f, 1f)));
-
-        // Seçili küpleri kırmızı titret
-        List<KupData> kupler = new List<KupData>(seciliKupler);
         
         for (int i = 0; i < 2; i++)
         {
-            // Kırmızıya dön
-            foreach (KupData kup in kupler)
-            {
-                if (kup != null && kup.kupGoruntusu != null)
-                {
-                    kup.kupGoruntusu.color = new Color(1f, 0.3f, 0.3f, 1f);
-                }
-            }
-            yield return new WaitForSeconds(0.06f);
+            if (kup1.kupGoruntusu != null) kup1.kupGoruntusu.color = new Color(1f, 0.4f, 0.4f, 1f);
+            if (kup2.kupGoruntusu != null) kup2.kupGoruntusu.color = new Color(1f, 0.4f, 0.4f, 1f);
+            yield return new WaitForSeconds(0.08f);
             
-            // Normal renge dön
-            foreach (KupData kup in kupler)
-            {
-                if (kup != null && kup.kupGoruntusu != null)
-                {
-                    kup.kupGoruntusu.color = Color.white;
-                }
-            }
-            yield return new WaitForSeconds(0.06f);
+            if (kup1.kupGoruntusu != null) kup1.kupGoruntusu.color = Color.white;
+            if (kup2.kupGoruntusu != null) kup2.kupGoruntusu.color = Color.white;
+            yield return new WaitForSeconds(0.08f);
         }
     }
 
     System.Collections.IEnumerator EkraniRenklendir(Color hedefRenk)
     {
-        if (hataPaneli == null)
-        {
-            HataPaneliOlustur();
-        }
-
+        if (hataPaneli == null) HataPaneliOlustur();
+        
         Image img = hataPaneli.GetComponent<Image>();
         if (img == null) yield break;
 
-        // Görünür yap
         hataPaneli.SetActive(true);
 
-        // Parlat
         float sure = 0.1f;
         float gecen = 0f;
 
         while (gecen < sure)
         {
             gecen += Time.deltaTime;
-            float alpha = Mathf.Lerp(0f, 0.3f, gecen / sure);
+            float alpha = Mathf.Lerp(0f, 0.25f, gecen / sure);
             img.color = new Color(hedefRenk.r, hedefRenk.g, hedefRenk.b, alpha);
             yield return null;
         }
 
-        // Söndür
         sure = 0.15f;
         gecen = 0f;
         while (gecen < sure)
         {
             gecen += Time.deltaTime;
-            float alpha = Mathf.Lerp(0.3f, 0f, gecen / sure);
+            float alpha = Mathf.Lerp(0.25f, 0f, gecen / sure);
             img.color = new Color(hedefRenk.r, hedefRenk.g, hedefRenk.b, alpha);
             yield return null;
         }
 
-        img.color = new Color(hedefRenk.r, hedefRenk.g, hedefRenk.b, 0f);
         hataPaneli.SetActive(false);
     }
 
@@ -478,5 +520,13 @@ public class UILineDrawer : MonoBehaviour
         rect.anchoredPosition = Vector2.zero;
         
         hataPaneli.SetActive(false);
+    }
+
+    void GuncellePuanYazisi()
+    {
+        if (puanYazisi != null)
+        {
+            puanYazisi.text = $"Puan: {toplamPuan}";
+        }
     }
 }
