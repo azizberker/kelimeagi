@@ -15,7 +15,6 @@ public class KelimeVeritabani : MonoBehaviour
     public int minKelimeUzunlugu = 2;
 
     private HashSet<string> kelimeler = new HashSet<string>();
-    private bool yuklendi = false;
 
     void Awake()
     {
@@ -51,7 +50,6 @@ public class KelimeVeritabani : MonoBehaviour
                 }
             }
             
-            yuklendi = true;
             Debug.Log($"Kelime veritabanı yüklendi: {kelimeler.Count} kelime");
         }
         else
@@ -85,7 +83,6 @@ public class KelimeVeritabani : MonoBehaviour
             kelimeler.Add(kelime);
         }
         
-        yuklendi = true;
         Debug.Log($"Varsayılan kelimeler yüklendi: {kelimeler.Count} kelime");
     }
 
