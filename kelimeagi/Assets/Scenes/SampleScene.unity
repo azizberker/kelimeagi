@@ -152,7 +152,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -423.51, y: 447.5}
+  m_AnchoredPosition: {x: -445, y: 447.5}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &195358451
@@ -230,7 +230,7 @@ MonoBehaviour:
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
   m_RenderPostProcessing: 0
-  m_Antialiasing: 0
+  m_Antialiasing: 1
   m_AntialiasingQuality: 2
   m_StopNaN: 0
   m_Dithering: 0
@@ -434,9 +434,9 @@ MonoBehaviour:
   anaCanvas: {fileID: 1800089751}
   minKelimeUzunluk: 3
   patlamaSuresi: 0.3
-  seciliRenk: {r: 1, g: 0.7, b: 0.2, a: 1}
-  parlamaRengi: {r: 1, g: 1, b: 0.5, a: 1}
-  cizgiRengi: {r: 1, g: 0.8, b: 0.2, a: 0.8}
+  seciliRenk: {r: 0.764151, g: 0.09732112, b: 0.4107892, a: 1}
+  parlamaRengi: {r: 0.74873716, g: 0.5019608, b: 1, a: 1}
+  cizgiRengi: {r: 0.5566038, g: 0.034131378, b: 0.18921222, a: 0.8}
   cizgiKalinligi: 12
   harfOnizlemeBoyutu: 85
   harfOnizlemeAraligi: 12
