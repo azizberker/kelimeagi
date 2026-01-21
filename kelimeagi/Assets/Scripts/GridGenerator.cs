@@ -9,8 +9,14 @@ public class GridGenerator : MonoBehaviour
     public GameObject kupPrefabi;
     public Transform gridKutusu;
     
+    [Header("3D Model Ayarları")]
+    public GameObject ucBoyutluModelPrefabi; // Inspector'dan atanacak .fbx veya prefab
+    public float modelBoyutu = 40f; // Ölçeklendirme katsayısı
+    
     [Header("Renk Paleti")]
     public Color[] renkListesi; // Rastgele atanacak renkler
+    [Range(0f, 1f)]
+    public float camSaydamligi = 0.9f; // Liquid shader için yüksek alpha iyidir
     
     [Header("Slot Animasyon Ayarları")]
     public float slotAnimasyonSuresi = 2f;
@@ -30,6 +36,8 @@ public class GridGenerator : MonoBehaviour
 
     void Start()
     {
+        // Pikselleşmeyi önlemek için Anti-Aliasing'i açıyoruz (4x)
+        QualitySettings.antiAliasing = 4;
         StartCoroutine(BaslangicGecikme());
     }
 
@@ -58,6 +66,26 @@ public class GridGenerator : MonoBehaviour
             KupData veriScripti = yeniKup.GetComponent<KupData>();
             if (veriScripti != null)
             {
+                // 3D Model Oluşturma Mantığı
+                if (ucBoyutluModelPrefabi != null)
+                {
+                    GameObject model = Instantiate(ucBoyutluModelPrefabi, yeniKup.transform);
+                    // Z pozisyonunu 5'e çekiyoruz (Harfe daha yakın olsun, bütünleşik dursun)
+                    model.transform.localPosition = new Vector3(0, 0, 5f);
+                    // Hafif aşağı baktırıyoruz (-15) ki 3D olduğu belli olsun
+                    model.transform.localRotation = Quaternion.Euler(-15f, 180f, 0); 
+                    model.transform.localScale = Vector3.one * modelBoyutu;
+
+                    // Layer'ı UI yap ki Canvas kamerasında görünsün
+                    SetLayerRecursively(model, 5); // 5 = UI Layer
+
+                    Renderer[] rends = model.GetComponentsInChildren<Renderer>();
+                    if (rends != null && rends.Length > 0)
+                    {
+                        veriScripti.ModelAta(rends);
+                    }
+                }
+
                 tumKupler.Add(veriScripti);
                 
                 // Başlangıç rengi ata
@@ -215,10 +243,11 @@ public class GridGenerator : MonoBehaviour
         if (renkListesi != null && renkListesi.Length > 0)
         {
             Color renk = renkListesi[Random.Range(0, renkListesi.Length)];
-            if (renk.a < 0.01f) renk.a = 1f;
+            // Cam efekti için saydamlık ayarla
+            renk.a = camSaydamligi; 
             return renk;
         }
-        return Color.white;
+        return new Color(1f, 1f, 1f, camSaydamligi);
     }
 
     char[] RastgeleHarfUret(int adet)
@@ -335,5 +364,14 @@ public class GridGenerator : MonoBehaviour
     public List<KupData> TumKuplerAl()
     {
         return tumKupler;
+    }
+
+    void SetLayerRecursively(GameObject obj, int newLayer)
+    {
+        obj.layer = newLayer;
+        foreach (Transform child in obj.transform)
+        {
+            SetLayerRecursively(child.gameObject, newLayer);
+        }
     }
 }

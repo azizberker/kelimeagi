@@ -90,6 +90,38 @@ public class KupData : MonoBehaviour
         }
     }
 
+    // 3D Model Referansı
+    private Renderer[] modelRenderers;
+
+    public void ModelAta(Renderer[] renderers)
+    {
+        modelRenderers = renderers;
+        // 3D model varsa 2D Image'ı gizle veya şeffaflaştır
+        if (kupGoruntusu != null)
+        {
+            Color c = kupGoruntusu.color;
+            c.a = 0f; // Tamamen şeffaf yap
+            kupGoruntusu.color = c;
+        }
+    }
+
+    void Start()
+    {
+        // 3D Obje kullandığımız için Raycast'in tutması adına görünmez bir Image (Hitbox) ekliyoruz
+        if (kupGoruntusu == null)
+        {
+            kupGoruntusu = GetComponent<Image>();
+            if (kupGoruntusu == null)
+            {
+                kupGoruntusu = gameObject.AddComponent<Image>();
+            }
+        }
+        
+        // Image'ı tamamen şeffaf yap ama raycast target açık kalsın
+        kupGoruntusu.color = new Color(0, 0, 0, 0); 
+        kupGoruntusu.raycastTarget = true;
+    }
+
     /// <summary>
     /// Eski metod - renk bazlı (geriye uyumluluk için)
     /// </summary>
@@ -117,9 +149,72 @@ public class KupData : MonoBehaviour
             puanYazisi.text = mevcutPuan.ToString();
         }
 
-        if (kupGoruntusu != null)
+        // 3D Model varsa onun rengini değiştir
+        if (modelRenderers != null && modelRenderers.Length > 0)
+        {
+            foreach (var rend in modelRenderers)
+            {
+                if (rend != null)
+                {
+                    // Yeni Kristal Shader için
+                    if (rend.material.HasProperty("_MainColor"))
+                    {
+                        rend.material.SetColor("_MainColor", gelenRenk);
+                    }
+                    // URP Shader
+                    else if (rend.material.HasProperty("_BaseColor"))
+                    {
+                        rend.material.SetColor("_BaseColor", gelenRenk);
+                    }
+                    // Standart Shader
+                    else 
+                    {
+                        rend.material.color = gelenRenk;
+                    }
+                }
+            }
+            // Rengi atadıktan sonra saydamlık durumunu resetle (Seçili değilsin)
+            SetSeciliDurum(false);
+        }
+        // Yoksa 2D Image rengini değiştir (SADECE 3D MODEL YOKSA)
+        else if (kupGoruntusu != null && (modelRenderers == null || modelRenderers.Length == 0))
         {
             kupGoruntusu.color = gelenRenk;
+        }
+    }
+
+    public Color GetKupRengi()
+    {
+        if (modelRenderers != null && modelRenderers.Length > 0 && modelRenderers[0] != null)
+        {
+            if (modelRenderers[0].material.HasProperty("_MainColor"))
+                return modelRenderers[0].material.GetColor("_MainColor");
+            if (modelRenderers[0].material.HasProperty("_BaseColor"))
+                return modelRenderers[0].material.GetColor("_BaseColor");
+            return modelRenderers[0].material.color;
+        }
+        if (kupGoruntusu != null) return kupGoruntusu.color;
+        return Color.white;
+    }
+
+    public void SetSeciliDurum(bool secili)
+    {
+        // Seçili olunca rengi biraz daha koyu/opak yapalım ki belli olsun
+        if (modelRenderers != null && modelRenderers.Length > 0)
+        {
+            foreach(var rend in modelRenderers)
+            {
+                if (rend == null) continue;
+                
+                // Shaderımız _MainColor'ın Alpha'sını kullanıyor
+                if (rend.material.HasProperty("_MainColor"))
+                {
+                    Color c = rend.material.GetColor("_MainColor");
+                    // Seçiliyken alpha 1 (Opak), değilse eski transparent hali
+                    c.a = secili ? 1.0f : 0.05f; 
+                    rend.material.SetColor("_MainColor", c);
+                }
+            }
         }
     }
 }

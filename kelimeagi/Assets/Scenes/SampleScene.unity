@@ -430,10 +430,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UILineDrawer
   puanYazisi: {fileID: 2139284717}
+  seciliKelimeYazisi: {fileID: 0}
   anaCanvas: {fileID: 1800089751}
   minKelimeUzunluk: 3
-  swapSuresi: 0.25
   patlamaSuresi: 0.3
+  seciliRenk: {r: 1, g: 0.7, b: 0.2, a: 1}
+  parlamaRengi: {r: 1, g: 1, b: 0.5, a: 1}
+  cizgiRengi: {r: 1, g: 0.8, b: 0.2, a: 0.8}
+  cizgiKalinligi: 12
+  harfOnizlemeBoyutu: 85
+  harfOnizlemeAraligi: 12
+  panelYuksekligi: 110
+  panelYPozisyonu: 120
 --- !u!4 &734141918
 Transform:
   m_ObjectHideFlags: 0
@@ -487,7 +495,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GridGenerator
   kupPrefabi: {fileID: 4926021518815369080, guid: 797ccd7e5fd40954a881371f380b5413, type: 3}
   gridKutusu: {fileID: 195358450}
+  ucBoyutluModelPrefabi: {fileID: 7052923966896302989, guid: 09429427fbea58a4f99bf4acb1aa972c, type: 3}
+  modelBoyutu: 60
   renkListesi: []
+  camSaydamligi: 0.8
   slotAnimasyonSuresi: 1.5
   sutunGecikme: 0.2
   harfDegismeSuresi: 0.08
@@ -821,8 +832,8 @@ Canvas:
   m_GameObject: {fileID: 1800089748}
   m_Enabled: 1
   serializedVersion: 3
-  m_RenderMode: 0
-  m_Camera: {fileID: 0}
+  m_RenderMode: 1
+  m_Camera: {fileID: 519420031}
   m_PlaneDistance: 100
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
