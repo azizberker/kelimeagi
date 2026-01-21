@@ -134,4 +134,41 @@ public class HarfYoneticisi : MonoBehaviour
         }
         return 5; // Varsayılan orta zorluk
     }
+
+    // ==================== HARF PUAN SİSTEMİ ====================
+    
+    // Harf puanları (zor harfler = yüksek puan)
+    private static readonly Dictionary<char, int> harfPuanlari = new Dictionary<char, int>
+    {
+        // Çok kolay harfler - 1 puan
+        { 'A', 1 }, { 'E', 1 }, { 'İ', 1 }, { 'I', 1 },
+        
+        // Kolay harfler - 2 puan
+        { 'K', 2 }, { 'L', 2 }, { 'R', 2 }, { 'N', 2 }, { 'T', 2 },
+        
+        // Normal harfler - 3 puan
+        { 'M', 3 }, { 'S', 3 }, { 'D', 3 }, { 'Y', 3 }, { 'B', 3 },
+        
+        // Orta-zor harfler - 4-5 puan
+        { 'O', 4 }, { 'U', 4 }, { 'C', 4 }, { 'Ö', 5 }, { 'Ü', 5 },
+        
+        // Zor harfler - 6-7 puan
+        { 'Ç', 6 }, { 'G', 6 }, { 'H', 6 }, { 'P', 6 }, { 'Z', 7 },
+        
+        // Çok zor harfler - 8-9 puan
+        { 'F', 8 }, { 'Ğ', 9 }, { 'J', 9 }, { 'Ş', 7 }, { 'V', 8 }
+    };
+
+    /// <summary>
+    /// Harfin puan değerini döndürür (1-9, kolay = düşük, zor = yüksek)
+    /// </summary>
+    public int GetHarfPuani(char harf)
+    {
+        char upperHarf = char.ToUpper(harf);
+        if (harfPuanlari.TryGetValue(upperHarf, out int puan))
+        {
+            return puan;
+        }
+        return 3; // Varsayılan orta puan
+    }
 }

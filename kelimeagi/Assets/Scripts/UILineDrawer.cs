@@ -248,47 +248,55 @@ public class UILineDrawer : MonoBehaviour
 
     // ==================== KELİME BULMA ====================
     
-    // Sadece belirtilen satır ve sütunlarda kelime ara
+    // TÜM satır ve sütunlarda kelime ara (COMBO için)
     List<KupData> KelimeBul(HashSet<int> satirlar, HashSet<int> sutunlar)
     {
         if (gridGen == null) return new List<KupData>();
         
-        // En uzun kelimeyi bul (sadece bir tane!)
-        List<KupData> enUzunKelime = new List<KupData>();
-        string enUzunKelimeStr = "";
+        // TÜM bulunan kelimelerin küplerini topla (HashSet ile tekrarları önle)
+        HashSet<KupData> tumBulunanKupler = new HashSet<KupData>();
+        List<string> bulunanKelimeler = new List<string>();
         
-        // Belirtilen satırları kontrol et
+        // Belirtilen satırları kontrol et (YATAY kelimeler)
         foreach (int satir in satirlar)
         {
             List<KupData> satirKupleri = gridGen.GetSatirdakiKupler(satir);
             var (kelimeKupleri, kelimeStr) = EnUzunKelimeyiBul(satirKupleri);
             
-            if (kelimeKupleri.Count > enUzunKelime.Count)
+            if (kelimeKupleri.Count >= minKelimeUzunluk)
             {
-                enUzunKelime = kelimeKupleri;
-                enUzunKelimeStr = kelimeStr;
+                foreach (var kup in kelimeKupleri)
+                {
+                    tumBulunanKupler.Add(kup);
+                }
+                bulunanKelimeler.Add(kelimeStr + " (yatay)");
             }
         }
         
-        // Belirtilen sütunları kontrol et
+        // Belirtilen sütunları kontrol et (DİKEY kelimeler)
         foreach (int sutun in sutunlar)
         {
             List<KupData> sutunKupleri = gridGen.GetSutundakiKupler(sutun);
             var (kelimeKupleri, kelimeStr) = EnUzunKelimeyiBul(sutunKupleri);
             
-            if (kelimeKupleri.Count > enUzunKelime.Count)
+            if (kelimeKupleri.Count >= minKelimeUzunluk)
             {
-                enUzunKelime = kelimeKupleri;
-                enUzunKelimeStr = kelimeStr;
+                foreach (var kup in kelimeKupleri)
+                {
+                    tumBulunanKupler.Add(kup);
+                }
+                bulunanKelimeler.Add(kelimeStr + " (dikey)");
             }
         }
         
-        if (enUzunKelime.Count >= minKelimeUzunluk)
+        // Bulunan kelimeleri logla
+        if (bulunanKelimeler.Count > 0)
         {
-            Debug.Log($"Kelime bulundu: {enUzunKelimeStr}");
+            string comboText = bulunanKelimeler.Count > 1 ? " 🔥 COMBO!" : "";
+            Debug.Log($"Kelime(ler) bulundu: {string.Join(", ", bulunanKelimeler)}{comboText}");
         }
         
-        return enUzunKelime;
+        return new List<KupData>(tumBulunanKupler);
     }
     
     // Bir satır/sütunda en uzun geçerli kelimeyi bul
@@ -334,16 +342,35 @@ public class UILineDrawer : MonoBehaviour
 
     System.Collections.IEnumerator KupleriPatlat(List<KupData> patlayanKupler)
     {
-        // Puan ekle
-        int kazanilanPuan = patlayanKupler.Count * 10;
-        toplamPuan += kazanilanPuan;
-        GuncellePuanYazisi();
-        Debug.Log($"+{kazanilanPuan} puan! Toplam: {toplamPuan}");
+        // Kelimeyi oluştur
+        string kelime = "";
+        foreach (KupData kup in patlayanKupler)
+        {
+            if (kup != null) kelime += kup.mevcutHarf;
+        }
+        Debug.Log($"Kelime: {kelime}");
         
-        // Yeşil efekt
-        StartCoroutine(EkraniRenklendir(new Color(0f, 1f, 0f, 1f)));
+        // Harf puanlarını topla
+        int harfPuanlari = 0;
+        foreach (KupData kup in patlayanKupler)
+        {
+            if (kup != null)
+            {
+                harfPuanlari += kup.mevcutPuan;
+            }
+        }
         
-        // Patlama animasyonu
+        // Kelime bonusu
+        int kelimeBonus = patlayanKupler.Count >= 4 ? patlayanKupler.Count * 2 : 0;
+        int kazanilanPuan = harfPuanlari + kelimeBonus;
+        
+        // 1. Harfleri ekranın altına topla
+        yield return StartCoroutine(HarfleriTopla(patlayanKupler));
+        
+        // 2. Kelimeyi göster ve puan ekle
+        yield return StartCoroutine(KelimeyiGoster(kelime, kazanilanPuan));
+        
+        // 3. Patlama
         foreach (KupData kup in patlayanKupler)
         {
             if (kup != null)
@@ -352,9 +379,12 @@ public class UILineDrawer : MonoBehaviour
             }
         }
         
+        toplamPuan += kazanilanPuan;
+        GuncellePuanYazisi();
+        
         yield return new WaitForSeconds(patlamaSuresi + 0.1f);
         
-        // Yeni harfler ver
+        // 4. Küpleri eski yerlerine döndür ve yeni harfler ver
         foreach (KupData kup in patlayanKupler)
         {
             if (kup != null)
@@ -362,6 +392,15 @@ public class UILineDrawer : MonoBehaviour
                 kup.gameObject.SetActive(true);
                 
                 RectTransform rect = kup.GetComponent<RectTransform>();
+                
+                // Eski pozisyona dön
+                OrijinalPozisyon orijPoz = kup.GetComponent<OrijinalPozisyon>();
+                if (orijPoz != null)
+                {
+                    rect.anchoredPosition = orijPoz.pozisyon;
+                    Destroy(orijPoz);
+                }
+                
                 rect.localScale = Vector3.zero;
                 rect.localRotation = Quaternion.identity;
                 
@@ -385,8 +424,122 @@ public class UILineDrawer : MonoBehaviour
                 StartCoroutine(KupBelirmeAnimasyonu(kup));
             }
         }
+    }
+
+    // Harfleri ekranın altına topla
+    System.Collections.IEnumerator HarfleriTopla(List<KupData> kupler)
+    {
+        // Her küpün orijinal pozisyonunu kaydet
+        Dictionary<KupData, Vector2> orijinalPozisyonlar = new Dictionary<KupData, Vector2>();
+        float ortalamaX = 0f;
+        float minY = float.MaxValue;
         
-        // ZİNCİRLEME YOK! Sadece bu kelime patlar, biter.
+        foreach (KupData kup in kupler)
+        {
+            if (kup != null)
+            {
+                RectTransform rect = kup.GetComponent<RectTransform>();
+                Vector2 pos = rect.anchoredPosition;
+                orijinalPozisyonlar[kup] = pos;
+                ortalamaX += pos.x;
+                if (pos.y < minY) minY = pos.y;
+            }
+        }
+        
+        if (kupler.Count > 0)
+            ortalamaX /= kupler.Count;
+        
+        // Hedef: Mevcut pozisyonların 500 piksel ALTINDA, yatayda ortalanmış
+        float hedefY = minY - 500f;
+        
+        float sure = 0.4f;
+        float gecen = 0f;
+        
+        while (gecen < sure)
+        {
+            gecen += Time.deltaTime;
+            float t = Mathf.SmoothStep(0, 1, gecen / sure);
+            
+            int index = 0;
+            foreach (KupData kup in kupler)
+            {
+                if (kup != null && orijinalPozisyonlar.ContainsKey(kup))
+                {
+                    RectTransform rect = kup.GetComponent<RectTransform>();
+                    
+                    // Her harf yan yana dizilsin
+                    float xOffset = (index - (kupler.Count - 1) / 2f) * 80;
+                    Vector2 kupHedef = new Vector2(ortalamaX + xOffset, hedefY);
+                    
+                    rect.anchoredPosition = Vector2.Lerp(orijinalPozisyonlar[kup], kupHedef, t);
+                    
+                    // Biraz büyüt
+                    rect.localScale = Vector3.Lerp(Vector3.one, Vector3.one * 1.2f, t);
+                    
+                    index++;
+                }
+            }
+            
+            yield return null;
+        }
+        
+        // Orijinal pozisyonları sakla (geri dönüş için)
+        foreach (var kvp in orijinalPozisyonlar)
+        {
+            if (kvp.Key != null)
+            {
+                kvp.Key.gameObject.AddComponent<OrijinalPozisyon>().pozisyon = kvp.Value;
+            }
+        }
+    }
+
+    // Kelimeyi ve puanı göster
+    System.Collections.IEnumerator KelimeyiGoster(string kelime, int puan)
+    {
+        // Kelime yazısı oluştur
+        GameObject kelimeObj = new GameObject("KelimeGosterge");
+        kelimeObj.transform.SetParent(canvasRect, false);
+        
+        TMP_Text kelimeText = kelimeObj.AddComponent<TMP_Text>();
+        kelimeText.text = $"{kelime}\n+{puan}";
+        kelimeText.fontSize = 48;
+        kelimeText.fontStyle = FontStyles.Bold;
+        kelimeText.color = new Color(1f, 1f, 0f, 1f); // Sarı
+        kelimeText.alignment = TextAlignmentOptions.Center;
+        
+        RectTransform rect = kelimeObj.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(0, -200);
+        rect.sizeDelta = new Vector2(400, 150);
+        
+        // Yeşil efekt
+        StartCoroutine(EkraniRenklendir(new Color(0f, 1f, 0f, 1f)));
+        
+        // Animasyon - büyü ve kaybol
+        float sure = 0.8f;
+        float gecen = 0f;
+        
+        while (gecen < sure)
+        {
+            gecen += Time.deltaTime;
+            float t = gecen / sure;
+            
+            // Büyüme
+            float scale = 1f + Mathf.Sin(t * Mathf.PI) * 0.3f;
+            rect.localScale = Vector3.one * scale;
+            
+            // Son kısımda kaybol
+            if (t > 0.6f)
+            {
+                float alpha = 1f - (t - 0.6f) / 0.4f;
+                kelimeText.color = new Color(1f, 1f, 0f, alpha);
+            }
+            
+            yield return null;
+        }
+        
+        Destroy(kelimeObj);
     }
 
     System.Collections.IEnumerator KupPatlamaAnimasyonu(KupData kup)
