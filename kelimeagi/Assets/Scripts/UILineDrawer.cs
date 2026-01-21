@@ -351,7 +351,7 @@ public class UILineDrawer : MonoBehaviour
         // Kelimeyi göster
         yield return StartCoroutine(KelimeyiGoster(kelime, kazanilanPuan));
         
-        // Patlama
+        // Patlama animasyonu
         foreach (KupData kup in patlayanKupler)
         {
             if (kup != null)
