@@ -49,6 +49,16 @@ public class UILineDrawer : MonoBehaviour
     private KupData bekleyenKup = null;
     private float beklemeSuresi = 0f;
     private const float SECIM_BEKLEME = 0.15f; // 0.15 saniye bekleme
+    
+    // Seçili harf önizleme sistemi
+    [Header("Önizleme Panel Ayarları")]
+    public float harfOnizlemeBoyutu = 85f;
+    public float harfOnizlemeAraligi = 12f;
+    public float panelYuksekligi = 110f;
+    public float panelYPozisyonu = 120f;
+    
+    private GameObject onizlemeKonteyner;
+    private List<GameObject> onizlemeHarfler = new List<GameObject>();
 
     void Start()
     {
@@ -67,6 +77,7 @@ public class UILineDrawer : MonoBehaviour
         
         gridGen = FindAnyObjectByType<GridGenerator>();
         GuncellePuanYazisi();
+        OnizlemePaneliOlustur();
     }
 
     void Update()
@@ -239,6 +250,9 @@ public class UILineDrawer : MonoBehaviour
         // Yanma/Parlama efekti başlat
         StartCoroutine(HarfYanmaEfekti(kup));
         
+        // Önizlemeye harf ekle
+        OnizlemeyeHarfEkle(kup);
+        
         GuncelleKelimeYazisi();
     }
 
@@ -311,6 +325,9 @@ public class UILineDrawer : MonoBehaviour
         }
         
         seciliKupler.Clear();
+        
+        // Önizleme harflerini temizle
+        TemizleOnizleme();
 
         if (seciliKelimeYazisi != null)
         {
@@ -800,5 +817,171 @@ public class UILineDrawer : MonoBehaviour
             if (parca != null) Destroy(parca);
         }
         trailParcalari.Clear();
+    }
+
+    // ==================== SEÇİLİ HARF ÖNİZLEME SİSTEMİ ====================
+
+    void OnizlemePaneliOlustur()
+    {
+        if (canvasRect == null) return;
+
+        // Ana konteyner
+        onizlemeKonteyner = new GameObject("OnizlemeKonteyner");
+        onizlemeKonteyner.transform.SetParent(canvasRect, false);
+
+        RectTransform konteynerRect = onizlemeKonteyner.AddComponent<RectTransform>();
+        konteynerRect.anchorMin = new Vector2(0.5f, 0f);
+        konteynerRect.anchorMax = new Vector2(0.5f, 0f);
+        konteynerRect.pivot = new Vector2(0.5f, 0f);
+        konteynerRect.anchoredPosition = new Vector2(0, panelYPozisyonu);
+        konteynerRect.sizeDelta = new Vector2(600, panelYuksekligi);
+
+        // Arka plan paneli (kırmızı çerçeve)
+        GameObject arkaPlanObj = new GameObject("OnizlemeArkaPlan");
+        arkaPlanObj.transform.SetParent(onizlemeKonteyner.transform, false);
+
+        Image arkaPlanImg = arkaPlanObj.AddComponent<Image>();
+        arkaPlanImg.color = new Color(0.1f, 0.1f, 0.15f, 0.85f); // Koyu arka plan
+        arkaPlanImg.raycastTarget = false;
+
+        // Yuvarlak köşeli görünüm için
+        RectTransform arkaPlanRect = arkaPlanObj.GetComponent<RectTransform>();
+        arkaPlanRect.anchorMin = Vector2.zero;
+        arkaPlanRect.anchorMax = Vector2.one;
+        arkaPlanRect.sizeDelta = Vector2.zero;
+        arkaPlanRect.anchoredPosition = Vector2.zero;
+
+        // Kırmızı çerçeve (Outline efekti)
+        Outline outline = arkaPlanObj.AddComponent<Outline>();
+        outline.effectColor = new Color(0.9f, 0.2f, 0.2f, 1f); // Kırmızı
+        outline.effectDistance = new Vector2(3, 3);
+
+        // Harfler için konteyner
+        GameObject harflerKonteyner = new GameObject("HarflerKonteyner");
+        harflerKonteyner.transform.SetParent(onizlemeKonteyner.transform, false);
+        harflerKonteyner.tag = "Untagged";
+        harflerKonteyner.name = "HarflerKonteyner";
+
+        RectTransform harflerRect = harflerKonteyner.AddComponent<RectTransform>();
+        harflerRect.anchorMin = new Vector2(0.5f, 0.5f);
+        harflerRect.anchorMax = new Vector2(0.5f, 0.5f);
+        harflerRect.pivot = new Vector2(0.5f, 0.5f);
+        harflerRect.anchoredPosition = Vector2.zero;
+        harflerRect.sizeDelta = new Vector2(380, 80);
+
+        // HorizontalLayoutGroup ekle
+        HorizontalLayoutGroup layout = harflerKonteyner.AddComponent<HorizontalLayoutGroup>();
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.spacing = harfOnizlemeAraligi;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+    }
+
+    void OnizlemeyeHarfEkle(KupData kup)
+    {
+        if (onizlemeKonteyner == null) return;
+
+        Transform harflerKonteyner = onizlemeKonteyner.transform.Find("HarflerKonteyner");
+        if (harflerKonteyner == null) return;
+
+        // Yeni harf objesi oluştur
+        GameObject harfObj = new GameObject($"OnizlemeHarf_{onizlemeHarfler.Count}");
+        harfObj.transform.SetParent(harflerKonteyner, false);
+
+        // Arka plan (küp görüntüsü)
+        Image harfArkaPlan = harfObj.AddComponent<Image>();
+        harfArkaPlan.color = new Color(0.25f, 0.25f, 0.35f, 1f); // Koyu gri-mavi
+        harfArkaPlan.raycastTarget = false;
+
+        RectTransform harfRect = harfObj.GetComponent<RectTransform>();
+        harfRect.sizeDelta = new Vector2(harfOnizlemeBoyutu, harfOnizlemeBoyutu);
+
+        // Parlak kenar efekti
+        Outline harfOutline = harfObj.AddComponent<Outline>();
+        harfOutline.effectColor = new Color(1f, 0.8f, 0.3f, 0.8f); // Turuncu-sarı
+        harfOutline.effectDistance = new Vector2(2, 2);
+
+        // Harf yazısı
+        GameObject yaziObj = new GameObject("Yazi");
+        yaziObj.transform.SetParent(harfObj.transform, false);
+
+        TMP_Text yaziText = yaziObj.AddComponent<TextMeshProUGUI>();
+        yaziText.text = kup.mevcutHarf.ToString();
+        yaziText.fontSize = 36;
+        yaziText.fontStyle = FontStyles.Bold;
+        yaziText.color = Color.white;
+        yaziText.alignment = TextAlignmentOptions.Center;
+        yaziText.raycastTarget = false;
+
+        RectTransform yaziRect = yaziObj.GetComponent<RectTransform>();
+        yaziRect.anchorMin = Vector2.zero;
+        yaziRect.anchorMax = Vector2.one;
+        yaziRect.sizeDelta = Vector2.zero;
+        yaziRect.anchoredPosition = Vector2.zero;
+
+        // Listeye ekle
+        onizlemeHarfler.Add(harfObj);
+
+        // Panel boyutunu güncelle
+        GuncellePanelBoyutu();
+
+        // Belirme animasyonu
+        StartCoroutine(OnizlemeHarfAnimasyonu(harfRect));
+    }
+
+    void GuncellePanelBoyutu()
+    {
+        if (onizlemeKonteyner == null) return;
+
+        RectTransform konteynerRect = onizlemeKonteyner.GetComponent<RectTransform>();
+        if (konteynerRect == null) return;
+
+        // Harf sayısına göre genişlik hesapla
+        int harfSayisi = onizlemeHarfler.Count;
+        float genislik = (harfSayisi * harfOnizlemeBoyutu) + ((harfSayisi - 1) * harfOnizlemeAraligi) + 40f; // 40 padding
+        genislik = Mathf.Max(genislik, 100f); // Minimum genişlik
+
+        konteynerRect.sizeDelta = new Vector2(genislik, panelYuksekligi);
+    }
+
+    System.Collections.IEnumerator OnizlemeHarfAnimasyonu(RectTransform rect)
+    {
+        float sure = 0.2f;
+        float gecen = 0f;
+
+        rect.localScale = Vector3.zero;
+
+        while (gecen < sure)
+        {
+            gecen += Time.deltaTime;
+            float t = gecen / sure;
+
+            // Elastic easing
+            float scale;
+            if (t < 0.6f)
+            {
+                scale = Mathf.Lerp(0f, 1.2f, t / 0.6f);
+            }
+            else
+            {
+                scale = Mathf.Lerp(1.2f, 1f, (t - 0.6f) / 0.4f);
+            }
+
+            rect.localScale = Vector3.one * scale;
+            yield return null;
+        }
+
+        rect.localScale = Vector3.one;
+    }
+
+    void TemizleOnizleme()
+    {
+        foreach (var harf in onizlemeHarfler)
+        {
+            if (harf != null) Destroy(harf);
+        }
+        onizlemeHarfler.Clear();
     }
 }
