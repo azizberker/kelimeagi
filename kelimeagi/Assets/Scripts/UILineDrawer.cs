@@ -301,6 +301,9 @@ public class UILineDrawer : MonoBehaviour
     {
         animasyonDevam = true;
         
+        // ANINDA YEŞİL EKRAN (Doğru bildin!)
+        StartCoroutine(EkraniRenklendir(new Color(0.1f, 1f, 0.1f, 1f)));
+        
         // Puan hesapla vs... (Önceki kodlar aynı)
         string kelime = "";
         int harfPuanlari = 0;
@@ -517,7 +520,7 @@ public class UILineDrawer : MonoBehaviour
         rect.anchoredPosition = new Vector2(0, -150);
         rect.sizeDelta = new Vector2(500, 200);
         
-        StartCoroutine(EkraniRenklendir(new Color(0f, 1f, 0f, 1f)));
+        // StartCoroutine(EkraniRenklendir(new Color(0f, 1f, 0f, 1f))); // Artık KupleriPatlat içinde başta yapıyoruz
         
         float sure = 0.7f;
         float gecen = 0f;
