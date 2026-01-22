@@ -15,6 +15,17 @@ public class KupData : MonoBehaviour
     [HideInInspector]
     public int mevcutPuan;
 
+    // YENİ: MaterialPropertyBlock optimizasyonu için değişkenler
+    private Renderer[] modelRenderers;
+    private MaterialPropertyBlock[] propBlocks;
+    
+    // Rengi hafızada tutuyoruz çünkü PropertyBlock'tan okumak yerine yeniden set edeceğiz
+    private Color mevcutRenk = Color.white;
+    
+    // İstenen alpha değerleri (Orijinal koddaki 0.05f ve 1.0f)
+    private const float normalAlpha = 0.05f;
+    private const float selectedAlpha = 1.0f;
+
     void Awake()
     {
         if (harfYazisi == null)
@@ -90,12 +101,29 @@ public class KupData : MonoBehaviour
         }
     }
 
-    // 3D Model Referansı
-    private Renderer[] modelRenderers;
-
+    // 3D Model Referansı Atama
     public void ModelAta(Renderer[] renderers)
     {
         modelRenderers = renderers;
+        
+        // Renderers geldiyse PropertyBlock dizisini hazırla
+        if (modelRenderers != null && modelRenderers.Length > 0)
+        {
+            propBlocks = new MaterialPropertyBlock[modelRenderers.Length];
+            for (int i = 0; i < modelRenderers.Length; i++)
+            {
+                // Her renderer için temiz bir block oluştur
+                propBlocks[i] = new MaterialPropertyBlock();
+                if (modelRenderers[i] != null)
+                {
+                    // Mevcut takılı renk varsa onu alıp block'a işleyebiliriz,
+                    // ama VeriAta çağrılacağı için sıfırdan başlamak daha güvenli.
+                    // Yine de renderer üzerinde hali hazırda bir override varsa korumak için:
+                    modelRenderers[i].GetPropertyBlock(propBlocks[i]);
+                }
+            }
+        }
+
         // 3D model varsa 2D Image'ı gizle veya şeffaflaştır
         if (kupGoruntusu != null)
         {
@@ -123,7 +151,7 @@ public class KupData : MonoBehaviour
     }
 
     /// <summary>
-    /// Eski metod - renk bazlı (geriye uyumluluk için)
+    /// Eski metod - renk bazlı (geriye uyumluluk ve ana kullanım)
     /// </summary>
     public void VeriAta(char gelenHarf, Color gelenRenk)
     {
@@ -149,32 +177,13 @@ public class KupData : MonoBehaviour
             puanYazisi.text = mevcutPuan.ToString();
         }
 
-        // 3D Model varsa onun rengini değiştir
+        // Rengi sakla (Normal alpha ile değil, ham renk olarak saklıyoruz, uygulama anında alpha verilecek)
+        mevcutRenk = gelenRenk;
+
+        // 3D Model varsa MaterialPropertyBlock ile rengi güncelle
         if (modelRenderers != null && modelRenderers.Length > 0)
         {
-            foreach (var rend in modelRenderers)
-            {
-                if (rend != null)
-                {
-                    // Yeni Kristal Shader için
-                    if (rend.material.HasProperty("_MainColor"))
-                    {
-                        rend.material.SetColor("_MainColor", gelenRenk);
-                    }
-                    // URP Shader
-                    else if (rend.material.HasProperty("_BaseColor"))
-                    {
-                        rend.material.SetColor("_BaseColor", gelenRenk);
-                    }
-                    // Standart Shader
-                    else 
-                    {
-                        rend.material.color = gelenRenk;
-                    }
-                }
-            }
-            // Rengi atadıktan sonra saydamlık durumunu resetle (Seçili değilsin)
-            SetSeciliDurum(false);
+            UpdateModelColors(false); // Başlangıçta seçili değil
         }
         // Yoksa 2D Image rengini değiştir (SADECE 3D MODEL YOKSA)
         else if (kupGoruntusu != null && (modelRenderers == null || modelRenderers.Length == 0))
@@ -185,13 +194,10 @@ public class KupData : MonoBehaviour
 
     public Color GetKupRengi()
     {
-        if (modelRenderers != null && modelRenderers.Length > 0 && modelRenderers[0] != null)
+        // 3D model varsa saklanan rengi dön
+        if (modelRenderers != null && modelRenderers.Length > 0)
         {
-            if (modelRenderers[0].material.HasProperty("_MainColor"))
-                return modelRenderers[0].material.GetColor("_MainColor");
-            if (modelRenderers[0].material.HasProperty("_BaseColor"))
-                return modelRenderers[0].material.GetColor("_BaseColor");
-            return modelRenderers[0].material.color;
+            return mevcutRenk;
         }
         if (kupGoruntusu != null) return kupGoruntusu.color;
         return Color.white;
@@ -199,22 +205,49 @@ public class KupData : MonoBehaviour
 
     public void SetSeciliDurum(bool secili)
     {
-        // Seçili olunca rengi biraz daha koyu/opak yapalım ki belli olsun
+        // Seçim durumuna göre Alpha'yı değiştiriyoruz, renk sabit kalıyor
         if (modelRenderers != null && modelRenderers.Length > 0)
         {
-            foreach(var rend in modelRenderers)
+            UpdateModelColors(secili);
+        }
+    }
+
+    /// <summary>
+    /// MaterialPropertyBlock kullanarak tüm rendererların rengini ve alphasını günceller.
+    /// material instance oluşturmaz, performansı korur.
+    /// </summary>
+    private void UpdateModelColors(bool isSelected)
+    {
+        if (modelRenderers == null || propBlocks == null) return;
+
+        // Hedef alpha: Seçiliyse tam opak (1.0), değilse cam gibi (0.05)
+        float currentAlpha = isSelected ? selectedAlpha : normalAlpha;
+        
+        // Uygulanacak renk
+        Color colorToApply = mevcutRenk;
+        colorToApply.a = currentAlpha;
+
+        for (int i = 0; i < modelRenderers.Length; i++)
+        {
+            if (modelRenderers[i] == null) continue;
+            
+            // Eğer block dizisi senkronize değilse veya null ise güvenli oluştur
+            if (i >= propBlocks.Length || propBlocks[i] == null)
             {
-                if (rend == null) continue;
-                
-                // Shaderımız _MainColor'ın Alpha'sını kullanıyor
-                if (rend.material.HasProperty("_MainColor"))
-                {
-                    Color c = rend.material.GetColor("_MainColor");
-                    // Seçiliyken alpha 1 (Opak), değilse eski transparent hali
-                    c.a = secili ? 1.0f : 0.05f; 
-                    rend.material.SetColor("_MainColor", c);
-                }
+                propBlocks[i] = new MaterialPropertyBlock();
             }
+
+            // Mevcut block verisini al (başka propertyler varsa silinmesin)
+            modelRenderers[i].GetPropertyBlock(propBlocks[i]);
+
+            // Shader'ın kullanabileceği tüm olası renk parametrelerine aynı rengi basıyoruz.
+            // Bu sayede "HasProperty" kontrolüne gerek kalmadan tek seferde işlem yapılır.
+            propBlocks[i].SetColor("_MainColor", colorToApply);
+            propBlocks[i].SetColor("_BaseColor", colorToApply);
+            propBlocks[i].SetColor("_Color", colorToApply);
+
+            // Block'u renderera uygula
+            modelRenderers[i].SetPropertyBlock(propBlocks[i]);
         }
     }
 }

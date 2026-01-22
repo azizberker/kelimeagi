@@ -29,6 +29,7 @@ public class UILineDrawer : MonoBehaviour
     private RectTransform canvasRect;
     private GridGenerator gridGen;
     private GameObject hataPaneli;
+    private GlassShatterSpawner glassShatterSpawner; // Cached spawner reference
     
     // Sürükleme durumu
     private bool suruklemeAktif = false;
@@ -41,7 +42,8 @@ public class UILineDrawer : MonoBehaviour
     
     // Trail sistemi
     private List<Vector2> trailNoktalari = new List<Vector2>();
-    private List<GameObject> trailParcalari = new List<GameObject>();
+    private List<GameObject> trailParcalari = new List<GameObject>(); // Aktif kullanılan parçalar
+    private List<GameObject> pooledSegments = new List<GameObject>(); // Havuzdaki parçalar
     private const int maxTrailNokta = 30;
     private const float minNoktaMesafe = 8f;
     
@@ -78,6 +80,9 @@ public class UILineDrawer : MonoBehaviour
         gridGen = FindAnyObjectByType<GridGenerator>();
         GuncellePuanYazisi();
         OnizlemePaneliOlustur();
+        
+        // Havuzu başlangıçta doldur (Prewarm)
+        BaslangicHavuzunuOlustur();
     }
 
     void Update()
@@ -304,6 +309,16 @@ public class UILineDrawer : MonoBehaviour
         // ANINDA YEŞİL EKRAN (Doğru bildin!)
         StartCoroutine(EkraniRenklendir(new Color(0.1f, 1f, 0.1f, 1f)));
         
+        // Orijinal pozisyonları ÖNCE kaydet (harfler henüz yerinde)
+        Dictionary<KupData, Vector3> orijinalPozisyonlar = new Dictionary<KupData, Vector3>();
+        foreach (KupData kup in patlayanKupler)
+        {
+            if (kup != null)
+            {
+                orijinalPozisyonlar[kup] = kup.transform.position;
+            }
+        }
+        
         // Puan hesapla vs... (Önceki kodlar aynı)
         string kelime = "";
         int harfPuanlari = 0;
@@ -318,25 +333,22 @@ public class UILineDrawer : MonoBehaviour
         int kelimeBonus = patlayanKupler.Count >= 4 ? patlayanKupler.Count * 3 : 0;
         int kazanilanPuan = harfPuanlari + kelimeBonus;
         
-        // Harfleri topla animasyonu
-        yield return StartCoroutine(HarfleriTopla(patlayanKupler));
-        
-        // Puan Göstergesi
-        yield return StartCoroutine(KelimeyiGoster(kelime, kazanilanPuan));
-        
-        // GERÇEK PATLAMA
+        // GERÇEK PATLAMA - Orijinal pozisyonlarda patlat (harfler hareket etmeden)
         foreach (KupData kup in patlayanKupler)
         {
-            if (kup != null)
+            if (kup != null && orijinalPozisyonlar.ContainsKey(kup))
             {
-                // Partikül efektini oluştur
-                CamKirilmaEfektiOlustur(kup.transform.position, kup.GetKupRengi());
+                // Partikül efektini ORİJİNAL pozisyonda oluştur
+                CamKirilmaEfektiOlustur(orijinalPozisyonlar[kup], kup.GetKupRengi());
                 
                 // Küpü gizle ve resetle (hemen yok olsun ki partiküller görünsün)
                 kup.gameObject.SetActive(false);
                 kup.SetSeciliDurum(false); 
             }
         }
+        
+        // Puan Göstergesi
+        yield return StartCoroutine(KelimeyiGoster(kelime, kazanilanPuan));
         
         toplamPuan += kazanilanPuan;
         GuncellePuanYazisi();
@@ -381,60 +393,20 @@ public class UILineDrawer : MonoBehaviour
 
     void CamKirilmaEfektiOlustur(Vector3 pozisyon, Color renk)
     {
-        GameObject efektObj = new GameObject("KirilmaEfekti");
-        efektObj.transform.position = pozisyon;
-        efektObj.transform.SetParent(anaCanvas.transform); 
-        efektObj.transform.localScale = Vector3.one;
-        
-        // Z konusunu çöz: Öne al
-        Vector3 yerelPoz = efektObj.transform.localPosition;
-        yerelPoz.z = -100f; // Daha da öne al (Canvas plane'inden kurtul)
-        efektObj.transform.localPosition = yerelPoz;
-
-        ParticleSystem ps = efektObj.AddComponent<ParticleSystem>();
-        ParticleSystemRenderer psr = efektObj.GetComponent<ParticleSystemRenderer>();
-        
-        // Custom Shader Materyali
-        Material particleMat = new Material(Shader.Find("Custom/BasitKristal"));
-        if (particleMat.HasProperty("_MainColor"))
+        // Find and cache the spawner if not already cached
+        if (glassShatterSpawner == null)
         {
-            // Shader'ın düzgün çalışması için tam opak renk ver, sonra vertex color ile kısılır
-            Color matRenk = renk;
-            matRenk.a = 1.0f; 
-            particleMat.SetColor("_MainColor", matRenk);
+            glassShatterSpawner = FindAnyObjectByType<GlassShatterSpawner>();
         }
-        
-        psr.material = particleMat;
-        psr.renderMode = ParticleSystemRenderMode.Billboard;
-        
-        // AYARLAR - KAOS VE ŞİDDET
-        var main = ps.main;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 1.0f); // Rastgele ömür
-        main.startSpeed = new ParticleSystem.MinMaxCurve(300f, 900f); // Çok hızlı fırlasın (Patlama hissi)
-        main.startSize = new ParticleSystem.MinMaxCurve(5f, 45f); // Kimisi toz, kimisi koca parça
-        main.startColor = Color.white; 
-        main.gravityModifier = 5f; // Hızla yere çakılsın
-        main.maxParticles = 30;
-        main.loop = false;
-        main.playOnAwake = true;
 
-        // EMISSION - Tek seferde patlasın
-        var emission = ps.emission;
-        emission.enabled = true;
-        emission.rateOverTime = 0;
-        emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 25) });
-
-        // SHAPE - Her yöne saçılsın (Sphere)
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Sphere;
-        shape.radius = 20f; // Biraz genişten çıksın
-
-        // ROTATION - Parçalar dönsün (En önemlisi bu!)
-        var rotation = ps.rotationOverLifetime;
-        rotation.enabled = true;
-        rotation.z = new ParticleSystem.MinMaxCurve(-360f, 360f); // Çılgınca dönsünler
-        
-        Destroy(efektObj, 1.2f);
+        if (glassShatterSpawner != null)
+        {
+            glassShatterSpawner.Spawn(pozisyon, renk);
+        }
+        else
+        {
+            Debug.LogWarning("CamKirilmaEfektiOlustur: GlassShatterSpawner not found in scene!");
+        }
     }
 
     // Harfleri ekranın altına topla
@@ -506,7 +478,7 @@ public class UILineDrawer : MonoBehaviour
         GameObject kelimeObj = new GameObject("KelimeGosterge");
         kelimeObj.transform.SetParent(canvasRect, false);
         
-        TMP_Text kelimeText = kelimeObj.AddComponent<TMP_Text>();
+        TMP_Text kelimeText = kelimeObj.AddComponent<TextMeshProUGUI>();
         kelimeText.text = $"{kelime}\n+{puan}";
         kelimeText.fontSize = 56;
         kelimeText.fontStyle = FontStyles.Bold;
@@ -725,6 +697,48 @@ public class UILineDrawer : MonoBehaviour
         return lokalPoz;
     }
 
+    // POOL SİSTEMİ BAŞLANGIÇ
+    void BaslangicHavuzunuOlustur()
+    {
+        // Yeterli sayıda trail parçasını baştan oluşturup havuza atıyoruz
+        for (int i = 0; i < maxTrailNokta + 5; i++)
+        {
+            GameObject segment = CreateTrailSegment();
+            ReleaseSegment(segment);
+        }
+    }
+
+    GameObject GetSegment()
+    {
+        GameObject segment = null;
+        if (pooledSegments.Count > 0)
+        {
+            segment = pooledSegments[pooledSegments.Count - 1];
+            pooledSegments.RemoveAt(pooledSegments.Count - 1);
+        }
+        else
+        {
+            segment = CreateTrailSegment();
+        }
+
+        if (segment != null)
+        {
+            segment.SetActive(true);
+            segment.transform.SetAsLastSibling(); // En önde çizilsin
+        }
+        return segment;
+    }
+
+    void ReleaseSegment(GameObject segment)
+    {
+        if (segment != null)
+        {
+            segment.SetActive(false);
+            pooledSegments.Add(segment);
+        }
+    }
+    // POOL SİSTEMİ BİTİŞ
+
     void GuncelleTrail()
     {
         Vector2 mevcutPoz = EkranPozisyonunaCanvas(GetPointerPosition());
@@ -748,98 +762,128 @@ public class UILineDrawer : MonoBehaviour
 
     void TrailCiz()
     {
-        // Eski parçaları temizle
-        foreach (var parca in trailParcalari)
+        // İhtiyaç duyulan parça sayısı
+        int gerekliParca = Mathf.Max(0, trailNoktalari.Count - 1);
+
+        // Fazlalıkları havuza gönder
+        while (trailParcalari.Count > gerekliParca)
         {
-            if (parca != null) Destroy(parca);
+            int sonIndex = trailParcalari.Count - 1;
+            ReleaseSegment(trailParcalari[sonIndex]);
+            trailParcalari.RemoveAt(sonIndex);
         }
-        trailParcalari.Clear();
+
+        // Eksikleri havuzdan tamamla
+        while (trailParcalari.Count < gerekliParca)
+        {
+            GameObject seg = GetSegment();
+            trailParcalari.Add(seg);
+        }
         
-        // Yeni trail çiz
-        for (int i = 0; i < trailNoktalari.Count - 1; i++)
+        // Mevcut parçaları güncelle
+        for (int i = 0; i < gerekliParca; i++)
         {
             // Alpha: başlangıçta şeffaf, sonda opak
             float alpha = (float)(i + 1) / trailNoktalari.Count;
             // Kalınlık: başlangıçta ince, sonda kalın
             float kalinlik = cizgiKalinligi * (0.3f + alpha * 0.7f);
             
-            GameObject parca = CizgiParcasiOlustur(
+            UpdateTrailSegment(
+                trailParcalari[i],
                 trailNoktalari[i], 
                 trailNoktalari[i + 1], 
                 alpha * 0.9f,
                 kalinlik
             );
-            trailParcalari.Add(parca);
         }
     }
 
-    GameObject CizgiParcasiOlustur(Vector2 baslangic, Vector2 bitis, float alpha, float kalinlik)
+    // Sadece nesne oluşturur, değer atamaz (Değerler Update'de atanır)
+    GameObject CreateTrailSegment()
     {
         GameObject cizgiObj = new GameObject("TrailParca");
-        cizgiObj.transform.SetParent(canvasRect, false);
+        if (canvasRect != null) cizgiObj.transform.SetParent(canvasRect, false);
 
-        Vector2 yonu = bitis - baslangic;
-        float mesafe = yonu.magnitude;
-        float aci = Mathf.Atan2(yonu.y, yonu.x) * Mathf.Rad2Deg;
-
-        // Glow efekti (dış)
+        // Glow efekti (dış) -> Child 0
         GameObject glowObj = new GameObject("Glow");
         glowObj.transform.SetParent(cizgiObj.transform, false);
-        
         Image glowImg = glowObj.AddComponent<Image>();
-        glowImg.color = new Color(cizgiRengi.r, cizgiRengi.g, cizgiRengi.b, alpha * 0.3f);
         glowImg.raycastTarget = false;
-        
         RectTransform glowRect = glowObj.GetComponent<RectTransform>();
         glowRect.anchorMin = new Vector2(0.5f, 0.5f);
         glowRect.anchorMax = new Vector2(0.5f, 0.5f);
         glowRect.pivot = new Vector2(0f, 0.5f);
-        glowRect.anchoredPosition = baslangic;
-        glowRect.sizeDelta = new Vector2(mesafe, kalinlik * 2.5f);
-        glowRect.localRotation = Quaternion.Euler(0, 0, aci);
 
-        // Ana çizgi (iç)
+        // Ana çizgi (iç) -> Child 1
         GameObject anaObj = new GameObject("Ana");
         anaObj.transform.SetParent(cizgiObj.transform, false);
-        
         Image anaImg = anaObj.AddComponent<Image>();
-        anaImg.color = new Color(cizgiRengi.r, cizgiRengi.g, cizgiRengi.b, alpha);
         anaImg.raycastTarget = false;
-        
         RectTransform anaRect = anaObj.GetComponent<RectTransform>();
         anaRect.anchorMin = new Vector2(0.5f, 0.5f);
         anaRect.anchorMax = new Vector2(0.5f, 0.5f);
         anaRect.pivot = new Vector2(0f, 0.5f);
-        anaRect.anchoredPosition = baslangic;
-        anaRect.sizeDelta = new Vector2(mesafe, kalinlik);
-        anaRect.localRotation = Quaternion.Euler(0, 0, aci);
 
-        // Parlak merkez
+        // Parlak merkez -> Child 2
         GameObject merkezObj = new GameObject("Merkez");
         merkezObj.transform.SetParent(cizgiObj.transform, false);
-        
         Image merkezImg = merkezObj.AddComponent<Image>();
-        merkezImg.color = new Color(1f, 1f, 1f, alpha * 0.6f);
         merkezImg.raycastTarget = false;
-        
         RectTransform merkezRect = merkezObj.GetComponent<RectTransform>();
         merkezRect.anchorMin = new Vector2(0.5f, 0.5f);
         merkezRect.anchorMax = new Vector2(0.5f, 0.5f);
         merkezRect.pivot = new Vector2(0f, 0.5f);
-        merkezRect.anchoredPosition = baslangic;
-        merkezRect.sizeDelta = new Vector2(mesafe, kalinlik * 0.4f);
-        merkezRect.localRotation = Quaternion.Euler(0, 0, aci);
 
         return cizgiObj;
+    }
+
+    // Mevcut segmenti yeni verilere göre günceller (Allocator-Free)
+    void UpdateTrailSegment(GameObject cizgiObj, Vector2 baslangic, Vector2 bitis, float alpha, float kalinlik)
+    {
+        Vector2 yonu = bitis - baslangic;
+        float mesafe = yonu.magnitude;
+        float aci = Mathf.Atan2(yonu.y, yonu.x) * Mathf.Rad2Deg;
+        Quaternion rotasyon = Quaternion.Euler(0, 0, aci);
+
+        // Child 0: Glow
+        Transform glowTr = cizgiObj.transform.GetChild(0);
+        Image glowImg = glowTr.GetComponent<Image>();
+        RectTransform glowRect = glowTr.GetComponent<RectTransform>();
+        
+        glowImg.color = new Color(cizgiRengi.r, cizgiRengi.g, cizgiRengi.b, alpha * 0.3f);
+        glowRect.anchoredPosition = baslangic;
+        glowRect.sizeDelta = new Vector2(mesafe, kalinlik * 2.5f);
+        glowRect.localRotation = rotasyon;
+
+        // Child 1: Ana
+        Transform anaTr = cizgiObj.transform.GetChild(1);
+        Image anaImg = anaTr.GetComponent<Image>();
+        RectTransform anaRect = anaTr.GetComponent<RectTransform>();
+
+        anaImg.color = new Color(cizgiRengi.r, cizgiRengi.g, cizgiRengi.b, alpha);
+        anaRect.anchoredPosition = baslangic;
+        anaRect.sizeDelta = new Vector2(mesafe, kalinlik);
+        anaRect.localRotation = rotasyon;
+
+        // Child 2: Merkez
+        Transform merkezTr = cizgiObj.transform.GetChild(2);
+        Image merkezImg = merkezTr.GetComponent<Image>();
+        RectTransform merkezRect = merkezTr.GetComponent<RectTransform>();
+
+        merkezImg.color = new Color(1f, 1f, 1f, alpha * 0.6f);
+        merkezRect.anchoredPosition = baslangic;
+        merkezRect.sizeDelta = new Vector2(mesafe, kalinlik * 0.4f);
+        merkezRect.localRotation = rotasyon;
     }
 
     void TemizleTrail()
     {
         trailNoktalari.Clear();
         
+        // Hepsini havuza gönder
         foreach (var parca in trailParcalari)
         {
-            if (parca != null) Destroy(parca);
+            ReleaseSegment(parca);
         }
         trailParcalari.Clear();
     }
@@ -976,10 +1020,14 @@ public class UILineDrawer : MonoBehaviour
         float sure = 0.2f;
         float gecen = 0f;
 
+        if (rect == null) yield break;
         rect.localScale = Vector3.zero;
 
         while (gecen < sure)
         {
+            // Null check - object may have been destroyed during animation
+            if (rect == null) yield break;
+            
             gecen += Time.deltaTime;
             float t = gecen / sure;
 
@@ -998,7 +1046,8 @@ public class UILineDrawer : MonoBehaviour
             yield return null;
         }
 
-        rect.localScale = Vector3.one;
+        if (rect != null)
+            rect.localScale = Vector3.one;
     }
 
     void TemizleOnizleme()
