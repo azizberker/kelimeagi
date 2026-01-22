@@ -20,7 +20,8 @@ public class KupData : MonoBehaviour
     private MaterialPropertyBlock[] propBlocks;
     
     // Rengi hafızada tutuyoruz çünkü PropertyBlock'tan okumak yerine yeniden set edeceğiz
-    private Color mevcutRenk = Color.white;
+    [HideInInspector]
+    public Color mevcutRenk = Color.white;
     
     // İstenen alpha değerleri (Orijinal koddaki 0.05f ve 1.0f)
     private const float normalAlpha = 0.05f;

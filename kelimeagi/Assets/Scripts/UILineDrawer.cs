@@ -57,7 +57,13 @@ public class UILineDrawer : MonoBehaviour
     public float harfOnizlemeBoyutu = 85f;
     public float harfOnizlemeAraligi = 12f;
     public float panelYuksekligi = 110f;
-    public float panelYPozisyonu = 120f;
+    public float panelYPozisyonu = 220f;
+    
+    [Header("Önizleme Arka Plan Ayarları")]
+    [SerializeField] private Sprite onizlemeArkaplanSprite; // Custom themed background image
+    [SerializeField] private bool useSliced = true; // Use 9-slice if sprite has borders
+    [SerializeField] private Vector2 arkaplanPadding = new Vector2(0, 0); // Safe padding
+    [SerializeField] private Color arkaplanRengi = new Color(0.1f, 0.1f, 0.15f, 0.85f); // Fallback color if no sprite
     
     private GameObject onizlemeKonteyner;
     private List<GameObject> onizlemeHarfler = new List<GameObject>();
@@ -905,25 +911,43 @@ public class UILineDrawer : MonoBehaviour
         konteynerRect.anchoredPosition = new Vector2(0, panelYPozisyonu);
         konteynerRect.sizeDelta = new Vector2(600, panelYuksekligi);
 
-        // Arka plan paneli (kırmızı çerçeve)
-        GameObject arkaPlanObj = new GameObject("OnizlemeArkaPlan");
+        // Arka plan paneli
+        GameObject arkaPlanObj = new GameObject("BackgroundImage");
         arkaPlanObj.transform.SetParent(onizlemeKonteyner.transform, false);
+        arkaPlanObj.transform.SetAsFirstSibling(); // Ensure it's behind letters
 
         Image arkaPlanImg = arkaPlanObj.AddComponent<Image>();
-        arkaPlanImg.color = new Color(0.1f, 0.1f, 0.15f, 0.85f); // Koyu arka plan
         arkaPlanImg.raycastTarget = false;
+        
+        // Use custom sprite if assigned, otherwise use fallback color
+        if (onizlemeArkaplanSprite != null)
+        {
+            arkaPlanImg.sprite = onizlemeArkaplanSprite;
+            arkaPlanImg.color = Color.white;
+            
+            // Use sliced mode if enabled and sprite has borders
+            if (useSliced && onizlemeArkaplanSprite.border != Vector4.zero)
+            {
+                arkaPlanImg.type = Image.Type.Sliced;
+            }
+            else
+            {
+                arkaPlanImg.type = Image.Type.Simple;
+            }
+        }
+        else
+        {
+            // Fallback: use solid color
+            arkaPlanImg.color = arkaplanRengi;
+        }
 
-        // Yuvarlak köşeli görünüm için
+        // Stretch to fill panel with optional padding
         RectTransform arkaPlanRect = arkaPlanObj.GetComponent<RectTransform>();
         arkaPlanRect.anchorMin = Vector2.zero;
         arkaPlanRect.anchorMax = Vector2.one;
-        arkaPlanRect.sizeDelta = Vector2.zero;
+        arkaPlanRect.offsetMin = arkaplanPadding; // Left, Bottom padding
+        arkaPlanRect.offsetMax = -arkaplanPadding; // Right, Top padding (negative)
         arkaPlanRect.anchoredPosition = Vector2.zero;
-
-        // Kırmızı çerçeve (Outline efekti)
-        Outline outline = arkaPlanObj.AddComponent<Outline>();
-        outline.effectColor = new Color(0.9f, 0.2f, 0.2f, 1f); // Kırmızı
-        outline.effectDistance = new Vector2(3, 3);
 
         // Harfler için konteyner
         GameObject harflerKonteyner = new GameObject("HarflerKonteyner");
@@ -955,49 +979,87 @@ public class UILineDrawer : MonoBehaviour
         Transform harflerKonteyner = onizlemeKonteyner.transform.Find("HarflerKonteyner");
         if (harflerKonteyner == null) return;
 
-        // Yeni harf objesi oluştur
-        GameObject harfObj = new GameObject($"OnizlemeHarf_{onizlemeHarfler.Count}");
-        harfObj.transform.SetParent(harflerKonteyner, false);
+        // Ana konteyner (UI için)
+        GameObject kupObj = new GameObject($"OnizlemeKup_{onizlemeHarfler.Count}");
+        kupObj.transform.SetParent(harflerKonteyner, false);
 
-        // Arka plan (küp görüntüsü)
-        Image harfArkaPlan = harfObj.AddComponent<Image>();
-        harfArkaPlan.color = new Color(0.25f, 0.25f, 0.35f, 1f); // Koyu gri-mavi
-        harfArkaPlan.raycastTarget = false;
+        // RectTransform ekle (HorizontalLayoutGroup için gerekli)
+        RectTransform kupRect = kupObj.AddComponent<RectTransform>();
+        kupRect.sizeDelta = new Vector2(harfOnizlemeBoyutu, harfOnizlemeBoyutu);
 
-        RectTransform harfRect = harfObj.GetComponent<RectTransform>();
-        harfRect.sizeDelta = new Vector2(harfOnizlemeBoyutu, harfOnizlemeBoyutu);
+        // Görünmez hitbox (raycast için)
+        Image hitbox = kupObj.AddComponent<Image>();
+        hitbox.color = new Color(0, 0, 0, 0); // Tamamen şeffaf
+        hitbox.raycastTarget = false;
 
-        // Parlak kenar efekti
-        Outline harfOutline = harfObj.AddComponent<Outline>();
-        harfOutline.effectColor = new Color(1f, 0.8f, 0.3f, 0.8f); // Turuncu-sarı
-        harfOutline.effectDistance = new Vector2(2, 2);
+        // 3D Küp modelini GridGenerator'dan al ve ekle
+        if (gridGen != null && gridGen.ucBoyutluModelPrefabi != null)
+        {
+            GameObject model3D = Instantiate(gridGen.ucBoyutluModelPrefabi, kupObj.transform);
+            model3D.transform.localPosition = new Vector3(0, 0, 5f);
+            model3D.transform.localRotation = Quaternion.Euler(-15f, 180f, 0);
+            
+            // Önizleme için ölçekle
+            float modelOlcek = harfOnizlemeBoyutu * 0.6f;
+            model3D.transform.localScale = Vector3.one * modelOlcek;
 
-        // Harf yazısı
-        GameObject yaziObj = new GameObject("Yazi");
-        yaziObj.transform.SetParent(harfObj.transform, false);
+            // UI Layer'a al
+            SetLayerRecursively(model3D, 5); // 5 = UI Layer
+        }
 
-        TMP_Text yaziText = yaziObj.AddComponent<TextMeshProUGUI>();
-        yaziText.text = kup.mevcutHarf.ToString();
-        yaziText.fontSize = 36;
-        yaziText.fontStyle = FontStyles.Bold;
-        yaziText.color = Color.white;
-        yaziText.alignment = TextAlignmentOptions.Center;
-        yaziText.raycastTarget = false;
+        // Harf yazısı (ortada, büyük)
+        GameObject harfYaziObj = new GameObject("HarfYazisi");
+        harfYaziObj.transform.SetParent(kupObj.transform, false);
 
-        RectTransform yaziRect = yaziObj.GetComponent<RectTransform>();
-        yaziRect.anchorMin = Vector2.zero;
-        yaziRect.anchorMax = Vector2.one;
-        yaziRect.sizeDelta = Vector2.zero;
-        yaziRect.anchoredPosition = Vector2.zero;
+        TMP_Text harfText = harfYaziObj.AddComponent<TextMeshProUGUI>();
+        harfText.text = kup.mevcutHarf.ToString();
+        harfText.fontSize = 42;
+        harfText.fontStyle = FontStyles.Bold;
+        harfText.color = Color.white;
+        harfText.alignment = TextAlignmentOptions.Center;
+        harfText.raycastTarget = false;
+
+        RectTransform harfRect = harfYaziObj.GetComponent<RectTransform>();
+        harfRect.anchorMin = Vector2.zero;
+        harfRect.anchorMax = Vector2.one;
+        harfRect.sizeDelta = Vector2.zero;
+        harfRect.anchoredPosition = new Vector2(0, 5);
+
+        // Puan yazısı (sağ alt köşe)
+        GameObject puanYaziObj = new GameObject("PuanYazisi");
+        puanYaziObj.transform.SetParent(kupObj.transform, false);
+
+        TMP_Text puanText = puanYaziObj.AddComponent<TextMeshProUGUI>();
+        puanText.text = kup.mevcutPuan.ToString();
+        puanText.fontSize = 16;
+        puanText.fontStyle = FontStyles.Bold;
+        puanText.color = new Color(0.5f, 1f, 0.5f, 1f);
+        puanText.alignment = TextAlignmentOptions.BottomRight;
+        puanText.raycastTarget = false;
+
+        RectTransform puanRect = puanYaziObj.GetComponent<RectTransform>();
+        puanRect.anchorMin = Vector2.zero;
+        puanRect.anchorMax = Vector2.one;
+        puanRect.offsetMin = new Vector2(4, 4);
+        puanRect.offsetMax = new Vector2(-4, -4);
 
         // Listeye ekle
-        onizlemeHarfler.Add(harfObj);
+        onizlemeHarfler.Add(kupObj);
 
         // Panel boyutunu güncelle
         GuncellePanelBoyutu();
 
         // Belirme animasyonu
-        StartCoroutine(OnizlemeHarfAnimasyonu(harfRect));
+        StartCoroutine(OnizlemeHarfAnimasyonu(kupRect));
+    }
+    
+    void SetLayerRecursively(GameObject obj, int newLayer)
+    {
+        obj.layer = newLayer;
+        foreach (Transform child in obj.transform)
+        {
+            SetLayerRecursively(child.gameObject, newLayer);
+        }
     }
 
     void GuncellePanelBoyutu()
