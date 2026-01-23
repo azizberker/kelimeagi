@@ -26,6 +26,12 @@ public class KupData : MonoBehaviour
     // İstenen alpha değerleri (Orijinal koddaki 0.05f ve 1.0f)
     private const float normalAlpha = 0.05f;
     private const float selectedAlpha = 1.0f;
+    
+    // VFX_Fire referansı (Seçildiğinde alev efekti)
+    [SerializeField] private ParticleSystem fireVfx;
+    
+    // VFX_BlackSmoke referansı (Yanlış kelime için duman efekti)
+    [SerializeField] private ParticleSystem smokeVfx;
 
     void Awake()
     {
@@ -47,6 +53,43 @@ public class KupData : MonoBehaviour
         if (puanYazisi == null)
         {
             OlusturPuanYazisi();
+        }
+        
+        // VFX_Fire'i otomatik bul (boşsa)
+        if (fireVfx == null)
+        {
+            Transform vfxTransform = transform.Find("VFX_Fire");
+            if (vfxTransform != null)
+            {
+                fireVfx = vfxTransform.GetComponent<ParticleSystem>();
+            }
+            else
+            {
+                // Child içinde herhangi bir yerde olabilir
+                fireVfx = GetComponentInChildren<ParticleSystem>(true);
+            }
+        }
+        
+        // Başlangıçta VFX kapalı olsun
+        if (fireVfx != null)
+        {
+            fireVfx.gameObject.SetActive(false);
+        }
+        
+        // VFX_BlackSmoke'u otomatik bul (boşsa)
+        if (smokeVfx == null)
+        {
+            Transform smokeTransform = transform.Find("VFX_BlackSmoke");
+            if (smokeTransform != null)
+            {
+                smokeVfx = smokeTransform.GetComponent<ParticleSystem>();
+            }
+        }
+        
+        // Başlangıçta Smoke kapalı olsun
+        if (smokeVfx != null)
+        {
+            smokeVfx.gameObject.SetActive(false);
         }
     }
     
@@ -210,6 +253,56 @@ public class KupData : MonoBehaviour
         if (modelRenderers != null && modelRenderers.Length > 0)
         {
             UpdateModelColors(secili);
+        }
+        
+        // VFX_Fire aç/kapat
+        if (fireVfx != null)
+        {
+            if (secili)
+            {
+                fireVfx.gameObject.SetActive(true);
+                fireVfx.Play(true);
+            }
+            else
+            {
+                fireVfx.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                fireVfx.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Yanlış kelime oluştuğunda: Alev söner, duman çıkar, 1 saniye bekler, duman biter.
+    /// </summary>
+    public void YanlisKelimeVfxBaslat()
+    {
+        StartCoroutine(YanlisKelimeVfxCoroutine());
+    }
+
+    private System.Collections.IEnumerator YanlisKelimeVfxCoroutine()
+    {
+        // 1. Alevi durdur ve kapat
+        if (fireVfx != null)
+        {
+            fireVfx.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            fireVfx.gameObject.SetActive(false);
+        }
+
+        // 2. Dumanı aç ve başlat
+        if (smokeVfx != null)
+        {
+            smokeVfx.gameObject.SetActive(true);
+            smokeVfx.Play(true);
+        }
+
+        // 3. 1 saniye bekle
+        yield return new WaitForSeconds(1f);
+
+        // 4. Dumanı durdur ve kapat
+        if (smokeVfx != null)
+        {
+            smokeVfx.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            smokeVfx.gameObject.SetActive(false);
         }
     }
 

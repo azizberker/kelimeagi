@@ -341,16 +341,7 @@ public class UILineDrawer : MonoBehaviour
             }
         }
         int kelimeBonus = patlayanKupler.Count >= 4 ? patlayanKupler.Count * 3 : 0;
-        int hamPuan = harfPuanlari + kelimeBonus;
-        
-        // COMBO MANAGER PUAN HESAPLAMA
-        int kazanilanPuan = ComboManager.Instance != null ? ComboManager.Instance.PuanHesapla(hamPuan) : hamPuan;
-        
-        // COMBO MANAGER DOĞRU KELİME BİLDİRİMİ
-        if (ComboManager.Instance != null)
-        {
-            ComboManager.Instance.DogruKelime(kazanilanPuan);
-        }
+        int kazanilanPuan = harfPuanlari + kelimeBonus;
         
         // GERÇEK PATLAMA - Orijinal pozisyonlarda patlat (harfler hareket etmeden)
         foreach (KupData kup in patlayanKupler)
@@ -615,15 +606,17 @@ public class UILineDrawer : MonoBehaviour
 
     System.Collections.IEnumerator YanlisKelimeEfekti()
     {
-        // COMBO MANAGER YANLIŞ KELİME BİLDİRİMİ
-        if (ComboManager.Instance != null)
+        // Seçili küplerin duman VFX'ini tetikle
+        List<KupData> kupler = new List<KupData>(seciliKupler);
+        foreach (KupData kup in kupler)
         {
-            ComboManager.Instance.YanlisKelime();
+            if (kup != null)
+            {
+                kup.YanlisKelimeVfxBaslat();
+            }
         }
 
         StartCoroutine(EkraniRenklendir(new Color(1f, 0f, 0f, 1f)));
-
-        List<KupData> kupler = new List<KupData>(seciliKupler);
         
         for (int i = 0; i < 3; i++)
         {
@@ -993,174 +986,8 @@ public class UILineDrawer : MonoBehaviour
 
     void OnizlemeyeHarfEkle(KupData veriKup)
     {
-        // YENİ SİSTEM: ComboManager Frame Kullanımı
-        if (ComboManager.Instance != null && ComboManager.Instance.cerceveAlani != null)
-        {
-            Transform frameTransform = ComboManager.Instance.cerceveAlani;
-
-            // Frame içinde harf objesi oluştur
-            GameObject kupObj = new GameObject($"FrameKup_{onizlemeHarfler.Count}");
-            kupObj.transform.SetParent(frameTransform, false);
-
-            // Temel bileşenler
-            RectTransform kupRect = kupObj.AddComponent<RectTransform>();
-            kupRect.sizeDelta = new Vector2(harfOnizlemeBoyutu, harfOnizlemeBoyutu);
-
-            Image hitbox = kupObj.AddComponent<Image>();
-            hitbox.color = new Color(0, 0, 0, 0); 
-            hitbox.raycastTarget = false;
-
-            // 3D Model Kopyalama
-            if (gridGen != null && gridGen.ucBoyutluModelPrefabi != null)
-            {
-                GameObject model3D = Instantiate(gridGen.ucBoyutluModelPrefabi, kupObj.transform);
-                model3D.transform.localPosition = new Vector3(0, 0, -50f); 
-                model3D.transform.localRotation = Quaternion.Euler(-15f, 180f, 0);
-                model3D.transform.localScale = Vector3.one * (harfOnizlemeBoyutu * 0.6f);
-
-                SetLayerRecursively(model3D, 5); // UI Layer
-                
-                Renderer[] renderers = model3D.GetComponentsInChildren<Renderer>();
-                MaterialPropertyBlock propBlock = new MaterialPropertyBlock();
-                foreach (Renderer r in renderers)
-                {
-                    r.GetPropertyBlock(propBlock);
-                    if (veriKup != null)
-                    {
-                        propBlock.SetColor("_BaseColor", veriKup.GetKupRengi());
-                        propBlock.SetColor("_Color", veriKup.GetKupRengi());
-                        r.SetPropertyBlock(propBlock);
-                    }
-                }
-            }
-
-            // Harf Yazısı
-            GameObject harfYaziObj = new GameObject("HarfYazisi");
-            harfYaziObj.transform.SetParent(kupObj.transform, false);
-
-            TMP_Text harfText = harfYaziObj.AddComponent<TextMeshProUGUI>();
-            if (veriKup != null) harfText.text = veriKup.mevcutHarf.ToString();
-            harfText.fontSize = 42;
-            harfText.fontStyle = FontStyles.Bold;
-            harfText.color = Color.white;
-            harfText.alignment = TextAlignmentOptions.Center;
-            harfText.raycastTarget = false;
-
-            RectTransform harfRect = harfYaziObj.GetComponent<RectTransform>();
-            harfRect.anchorMin = Vector2.zero;
-            harfRect.anchorMax = Vector2.one;
-            harfRect.sizeDelta = Vector2.zero;
-            harfRect.anchoredPosition = new Vector2(0, 5);
-
-            // Listeye ekle ve animasyon
-            onizlemeHarfler.Add(kupObj);
-            StartCoroutine(OnizlemeHarfAnimasyonu(kupObj, onizlemeHarfler.Count - 1));
-            
-            // Pozisyonları güncelle
-            GuncelleFrameHarfPozisyonlari();
-
-            // Fonksiyondan çık, eski kodu çalıştırma
-            return;
-        }
-
-        /* ESKİ KOD BAŞLANGICI (Backup olarak kalsın)
-        if (onizlemeKonteyner == null) return;
-
-        Transform harflerKonteyner = onizlemeKonteyner.transform.Find("HarflerKonteyner");
-        if (harflerKonteyner == null) return;
-
-        // Ana konteyner (UI için)
-        GameObject kupObj = new GameObject($"OnizlemeKup_{onizlemeHarfler.Count}");
-        kupObj.transform.SetParent(harflerKonteyner, false);
-
-        // RectTransform ekle (HorizontalLayoutGroup için gerekli)
-        RectTransform kupRect = kupObj.AddComponent<RectTransform>();
-        kupRect.sizeDelta = new Vector2(harfOnizlemeBoyutu, harfOnizlemeBoyutu);
-
-        // Görünmez hitbox (raycast için)
-        Image hitbox = kupObj.AddComponent<Image>();
-        hitbox.color = new Color(0, 0, 0, 0); // Tamamen şeffaf
-        hitbox.raycastTarget = false;
-
-        // 3D Küp modelini GridGenerator'dan al ve ekle
-        if (gridGen != null && gridGen.ucBoyutluModelPrefabi != null)
-        {
-            GameObject model3D = Instantiate(gridGen.ucBoyutluModelPrefabi, kupObj.transform);
-            model3D.transform.localPosition = new Vector3(0, 0, 5f);
-            model3D.transform.localRotation = Quaternion.Euler(-15f, 180f, 0);
-            
-            // Önizleme için ölçekle
-            float modelOlcek = harfOnizlemeBoyutu * 0.6f;
-            model3D.transform.localScale = Vector3.one * modelOlcek;
-
-            // UI Layer'a al
-            SetLayerRecursively(model3D, 5); // 5 = UI Layer
-        }
-
-        // Harf yazısı (ortada, büyük)
-        GameObject harfYaziObj = new GameObject("HarfYazisi");
-        harfYaziObj.transform.SetParent(kupObj.transform, false);
-
-        TMP_Text harfText = harfYaziObj.AddComponent<TextMeshProUGUI>();
-        harfText.text = kup.mevcutHarf.ToString();
-        harfText.fontSize = 42;
-        harfText.fontStyle = FontStyles.Bold;
-        harfText.color = Color.white;
-        harfText.alignment = TextAlignmentOptions.Center;
-        harfText.raycastTarget = false;
-
-        RectTransform harfRect = harfYaziObj.GetComponent<RectTransform>();
-        harfRect.anchorMin = Vector2.zero;
-        harfRect.anchorMax = Vector2.one;
-        harfRect.sizeDelta = Vector2.zero;
-        harfRect.anchoredPosition = new Vector2(0, 5);
-
-        // Puan yazısı (sağ alt köşe)
-        GameObject puanYaziObj = new GameObject("PuanYazisi");
-        puanYaziObj.transform.SetParent(kupObj.transform, false);
-
-        TMP_Text puanText = puanYaziObj.AddComponent<TextMeshProUGUI>();
-        puanText.text = kup.mevcutPuan.ToString();
-        puanText.fontSize = 16;
-        puanText.fontStyle = FontStyles.Bold;
-        puanText.color = new Color(0.5f, 1f, 0.5f, 1f);
-        puanText.alignment = TextAlignmentOptions.BottomRight;
-        puanText.raycastTarget = false;
-
-        RectTransform puanRect = puanYaziObj.GetComponent<RectTransform>();
-        puanRect.anchorMin = Vector2.zero;
-        puanRect.anchorMax = Vector2.one;
-        puanRect.offsetMin = new Vector2(4, 4);
-        puanRect.offsetMax = new Vector2(-4, -4);
-
-        // Listeye ekle
-        onizlemeHarfler.Add(kupObj);
-
-        // Panel boyutunu güncelle
-        GuncellePanelBoyutu();
-
-        // Belirme animasyonu
-        StartCoroutine(OnizlemeHarfAnimasyonu(kupRect));
-        */
-    }
-
-    // YENİ FONKSİYON: Frame içindeki harfleri sırala
-    void GuncelleFrameHarfPozisyonlari()
-    {
-        if (ComboManager.Instance == null || ComboManager.Instance.cerceveAlani == null) return;
-        
-        float toplamGenislik = onizlemeHarfler.Count * harfOnizlemeBoyutu + (onizlemeHarfler.Count - 1) * 5f; 
-        float baslangicX = -toplamGenislik / 2f + harfOnizlemeBoyutu / 2f;
-        
-        for (int i = 0; i < onizlemeHarfler.Count; i++)
-        {
-            GameObject obj = onizlemeHarfler[i];
-            if (obj != null)
-            {
-                 RectTransform rect = obj.GetComponent<RectTransform>();
-                 rect.anchoredPosition = new Vector2(baslangicX + i * (harfOnizlemeBoyutu + 5f), 0);
-            }
-        }
+        // Önizleme sistemi devre dışı - ileride yeniden tasarlanacak
+        return;
     }
     
     void SetLayerRecursively(GameObject obj, int newLayer)
