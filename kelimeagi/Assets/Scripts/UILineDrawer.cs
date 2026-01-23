@@ -616,29 +616,11 @@ public class UILineDrawer : MonoBehaviour
             }
         }
 
+        // Ekranı kırmızı yaparak hata bildirimi
         StartCoroutine(EkraniRenklendir(new Color(1f, 0f, 0f, 1f)));
         
-        for (int i = 0; i < 3; i++)
-        {
-            foreach (KupData kup in kupler)
-            {
-                if (kup != null && kup.kupGoruntusu != null)
-                {
-                    kup.kupGoruntusu.color = new Color(1f, 0.3f, 0.3f, 1f);
-                }
-            }
-            yield return new WaitForSeconds(0.07f);
-            
-            foreach (KupData kup in kupler)
-            {
-                if (kup != null && kup.kupGoruntusu != null)
-                {
-                    // Hata efekti bitince tekrar görünmez yap (Hitbox)
-                    kup.kupGoruntusu.color = new Color(0, 0, 0, 0);
-                }
-            }
-            yield return new WaitForSeconds(0.07f);
-        }
+        // VFX'in görünmesi için kısa bekle
+        yield return new WaitForSeconds(0.3f);
         
         TemizleSecim();
     }
