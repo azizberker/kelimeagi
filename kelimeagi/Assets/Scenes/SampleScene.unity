@@ -438,7 +438,7 @@ MonoBehaviour:
   seciliRenk: {r: 0.764151, g: 0.09732112, b: 0.4107892, a: 1}
   parlamaRengi: {r: 0.74873716, g: 0.5019608, b: 1, a: 1}
   cizgiRengi: {r: 0.5566038, g: 0.034131378, b: 0.18921222, a: 0.8}
-  cizgiKalinligi: 12
+  cizgiKalinligi: 50
   harfOnizlemeBoyutu: 85
   harfOnizlemeAraligi: 12
   panelYuksekligi: 110
