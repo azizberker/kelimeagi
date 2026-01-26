@@ -152,7 +152,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -445, y: 447.5}
+  m_AnchoredPosition: {x: -420, y: 447.5}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &195358451
@@ -435,9 +435,9 @@ MonoBehaviour:
   minKelimeUzunluk: 3
   maxHarfSayisi: 6
   patlamaSuresi: 0.3
-  seciliRenk: {r: 0.764151, g: 0.09732112, b: 0.4107892, a: 1}
-  parlamaRengi: {r: 0.74873716, g: 0.5019608, b: 1, a: 1}
-  cizgiRengi: {r: 0.5566038, g: 0.034131378, b: 0.18921222, a: 0.8}
+  seciliRenk: {r: 0.4666667, g: 0.09019608, b: 0.52156866, a: 1}
+  parlamaRengi: {r: 0.21176472, g: 0.16078432, b: 0.60784316, a: 1}
+  cizgiRengi: {r: 0.18823531, g: 0.058823533, b: 0.35686275, a: 0.8}
   cizgiKalinligi: 50
   harfOnizlemeBoyutu: 85
   harfOnizlemeAraligi: 12
@@ -500,8 +500,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GridGenerator
   kupPrefabi: {fileID: 4926021518815369080, guid: 797ccd7e5fd40954a881371f380b5413, type: 3}
   gridKutusu: {fileID: 195358450}
-  ucBoyutluModelPrefabi: {fileID: 7052923966896302989, guid: 09429427fbea58a4f99bf4acb1aa972c, type: 3}
-  modelBoyutu: 60
   renkListesi: []
   camSaydamligi: 0.8
   slotAnimasyonSuresi: 1.5
@@ -593,8 +591,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 89007f8b59712b1439a37b295a34579d, type: 2}
-  m_sharedMaterial: {fileID: 7807393193559141004, guid: 89007f8b59712b1439a37b295a34579d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8a89fa14b10d46a99122fd4f73fca9a2, type: 2}
+  m_sharedMaterial: {fileID: 2140474, guid: 8a89fa14b10d46a99122fd4f73fca9a2, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -908,9 +906,10 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 1939610499}
+  - {fileID: 745154851}
   - {fileID: 195358450}
   - {fileID: 1218700150}
-  - {fileID: 745154851}
   - {fileID: 2139284719}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -919,6 +918,81 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!1 &1939610498
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1939610499}
+  - component: {fileID: 1939610501}
+  - component: {fileID: 1939610500}
+  m_Layer: 5
+  m_Name: Background
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1939610499
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1939610498}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1800089752}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: -15.8}
+  m_SizeDelta: {x: 1135, y: 2201.6}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1939610500
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1939610498}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 2100000, guid: 6e3a00b41a4bf9a4896910a4605e52fe, type: 2}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &1939610501
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1939610498}
+  m_CullTransparentMesh: 1
 --- !u!1 &2117501050
 GameObject:
   m_ObjectHideFlags: 0
@@ -1008,8 +1082,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 89007f8b59712b1439a37b295a34579d, type: 2}
-  m_sharedMaterial: {fileID: 7807393193559141004, guid: 89007f8b59712b1439a37b295a34579d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 2e498d1c8094910479dc3e1b768306a4, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 2e498d1c8094910479dc3e1b768306a4, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1193,9 +1267,29 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3401501828273068091, guid: b30e722805298a34f9cf29e5029d097b, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2180264, guid: 2e498d1c8094910479dc3e1b768306a4, type: 2}
     - target: {fileID: 5549892231755148911, guid: b30e722805298a34f9cf29e5029d097b, type: 3}
       propertyPath: m_Name
       value: Harfler
+      objectReference: {fileID: 0}
+    - target: {fileID: 6768552329001287278, guid: b30e722805298a34f9cf29e5029d097b, type: 3}
+      propertyPath: m_text
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 6768552329001287278, guid: b30e722805298a34f9cf29e5029d097b, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: 2e498d1c8094910479dc3e1b768306a4, type: 2}
+    - target: {fileID: 6768552329001287278, guid: b30e722805298a34f9cf29e5029d097b, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: 2180264, guid: 2e498d1c8094910479dc3e1b768306a4, type: 2}
+    - target: {fileID: 6768552329001287278, guid: b30e722805298a34f9cf29e5029d097b, type: 3}
+      propertyPath: m_hasFontAssetChanged
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

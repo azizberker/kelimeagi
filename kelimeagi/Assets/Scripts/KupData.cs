@@ -8,6 +8,9 @@ public class KupData : MonoBehaviour
     public TMP_Text harfYazisi;
     public TMP_Text puanYazisi; // Sağ alt köşedeki puan
     public Image kupGoruntusu;
+    
+    [Header("Küp Görseli")]
+    public Sprite kupSprite; // PNG görselini buraya sürükle!
 
     [HideInInspector]
     public char mevcutHarf;
@@ -179,7 +182,7 @@ public class KupData : MonoBehaviour
 
     void Start()
     {
-        // 3D Obje kullandığımız için Raycast'in tutması adına görünmez bir Image (Hitbox) ekliyoruz
+        // 2D Image kullanıyoruz - görünür olmalı
         if (kupGoruntusu == null)
         {
             kupGoruntusu = GetComponent<Image>();
@@ -189,8 +192,14 @@ public class KupData : MonoBehaviour
             }
         }
         
-        // Image'ı tamamen şeffaf yap ama raycast target açık kalsın
-        kupGoruntusu.color = new Color(0, 0, 0, 0); 
+        // Sprite atanmışsa Image'a uygula
+        if (kupSprite != null && kupGoruntusu != null)
+        {
+            kupGoruntusu.sprite = kupSprite;
+        }
+        
+        // Image görünür ve tıklanabilir olsun
+        kupGoruntusu.color = Color.white; 
         kupGoruntusu.raycastTarget = true;
     }
 
