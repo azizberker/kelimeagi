@@ -15,7 +15,6 @@ public class UILineDrawer : MonoBehaviour
     [Header("Oyun Ayarları")]
     public int minKelimeUzunluk = 2;
     public int maxHarfSayisi = 6; // Maksimum seçilebilecek harf sayısı
-    public float patlamaSuresi = 0.3f;
 
     [Header("Efekt Renkleri")]
     public Color seciliRenk = new Color(1f, 0.7f, 0.2f, 1f);
@@ -25,12 +24,16 @@ public class UILineDrawer : MonoBehaviour
     public Color cizgiRengi = new Color(1f, 0.8f, 0.2f, 0.8f);
     public float cizgiKalinligi = 12f;
 
-    // Seçili küpler
+    // Secili kupler
     private List<KupData> seciliKupler = new List<KupData>();
     private RectTransform canvasRect;
     private GridGenerator gridGen;
     private GameObject hataPaneli;
-    private GlassShatterSpawner glassShatterSpawner; // Cached spawner reference
+    private GlassShatterSpawner glassShatterSpawner;
+    
+    // Mobil performans icin cached raycast nesneleri
+    private PointerEventData cachedPointerData;
+    private List<RaycastResult> cachedRaycastResults = new List<RaycastResult>();
     
     // Sürükleme durumu
     private bool suruklemeAktif = false;
@@ -86,10 +89,15 @@ public class UILineDrawer : MonoBehaviour
         
         gridGen = FindAnyObjectByType<GridGenerator>();
         GuncellePuanYazisi();
-        // OnizlemePaneliOlustur(); // Artık ComboManager'ın Frame'ini kullanacağız, buradaki oluşturma iptal
         
-        // Havuzu başlangıçta doldur (Prewarm)
+        // Havuzu baslangicta doldur (Prewarm)
         BaslangicHavuzunuOlustur();
+        
+        // Cached raycast nesneleri olustur
+        if (EventSystem.current != null)
+        {
+            cachedPointerData = new PointerEventData(EventSystem.current);
+        }
     }
 
     void Update()
@@ -213,12 +221,27 @@ public class UILineDrawer : MonoBehaviour
             
             if (KelimeVeritabani.Instance != null && KelimeVeritabani.Instance.KelimeGecerliMi(kelimeUpper))
             {
-                Debug.Log($"✓ Geçerli kelime: {kelimeUpper}");
+                // ComboManager bilgilendir
+                if (ComboManager.Instance != null)
+                {
+                    ComboManager.Instance.DogruKelime();
+                }
+                
+                // 6 harfli kelime VFX tetikle
+                if (WordVfxTrigger.Instance != null)
+                {
+                    WordVfxTrigger.Instance.TryShowVfx(kelimeUpper);
+                }
+                
                 StartCoroutine(KupleriPatlat(new List<KupData>(seciliKupler)));
             }
             else
             {
-                Debug.Log($"✗ Geçersiz kelime: {kelimeUpper}");
+                // ComboManager bilgilendir
+                if (ComboManager.Instance != null)
+                {
+                    ComboManager.Instance.YanlisKelime();
+                }
                 StartCoroutine(YanlisKelimeEfekti());
             }
         }
@@ -230,14 +253,25 @@ public class UILineDrawer : MonoBehaviour
 
     KupData TiklananKupuBul()
     {
-        PointerEventData pointerData = new PointerEventData(EventSystem.current);
-        pointerData.position = GetPointerPosition();
-
-        List<RaycastResult> sonuclar = new List<RaycastResult>();
-        EventSystem.current.RaycastAll(pointerData, sonuclar);
-
-        foreach (RaycastResult sonuc in sonuclar)
+        // EventSystem null kontrolu
+        if (EventSystem.current == null) return null;
+        
+        // Cached pointer data olustur/guncelle
+        if (cachedPointerData == null)
         {
+            cachedPointerData = new PointerEventData(EventSystem.current);
+        }
+        cachedPointerData.position = GetPointerPosition();
+        
+        // Cached listeyi temizle ve kullan
+        cachedRaycastResults.Clear();
+        EventSystem.current.RaycastAll(cachedPointerData, cachedRaycastResults);
+
+        for (int i = 0; i < cachedRaycastResults.Count; i++)
+        {
+            RaycastResult sonuc = cachedRaycastResults[i];
+            if (sonuc.gameObject == null) continue;
+            
             KupData kup = sonuc.gameObject.GetComponent<KupData>();
             if (kup == null)
             {
@@ -316,20 +350,10 @@ public class UILineDrawer : MonoBehaviour
     {
         animasyonDevam = true;
         
-        // ANINDA YEŞİL EKRAN (Doğru bildin!)
+        // 1. YEŞİL EKRAN
         StartCoroutine(EkraniRenklendir(new Color(0.1f, 1f, 0.1f, 1f)));
         
-        // Orijinal pozisyonları ÖNCE kaydet (harfler henüz yerinde)
-        Dictionary<KupData, Vector3> orijinalPozisyonlar = new Dictionary<KupData, Vector3>();
-        foreach (KupData kup in patlayanKupler)
-        {
-            if (kup != null)
-            {
-                orijinalPozisyonlar[kup] = kup.transform.position;
-            }
-        }
-        
-        // Puan hesapla vs... (Önceki kodlar aynı)
+        // 2. PUAN HESAPLA
         string kelime = "";
         int harfPuanlari = 0;
         foreach (KupData kup in patlayanKupler)
@@ -343,62 +367,148 @@ public class UILineDrawer : MonoBehaviour
         int kelimeBonus = patlayanKupler.Count >= 4 ? patlayanKupler.Count * 3 : 0;
         int kazanilanPuan = harfPuanlari + kelimeBonus;
         
-        // GERÇEK PATLAMA - Orijinal pozisyonlarda patlat (harfler hareket etmeden)
-        foreach (KupData kup in patlayanKupler)
-        {
-            if (kup != null && orijinalPozisyonlar.ContainsKey(kup))
-            {
-                // Partikül efektini ORİJİNAL pozisyonda oluştur
-                CamKirilmaEfektiOlustur(orijinalPozisyonlar[kup], kup.GetKupRengi());
-                
-                // Küpü gizle ve resetle (hemen yok olsun ki partiküller görünsün)
-                kup.gameObject.SetActive(false);
-                kup.SetSeciliDurum(false); 
-            }
-        }
-        
-        // Puan Göstergesi
-        yield return StartCoroutine(KelimeyiGoster(kelime, kazanilanPuan));
-        
-        toplamPuan += kazanilanPuan;
-        GuncellePuanYazisi();
-        
-        yield return new WaitForSeconds(patlamaSuresi + 0.1f);
-        
-        // Küpleri geri yükle
+        // 3. CAM KIRILMA EFEKTİ
         foreach (KupData kup in patlayanKupler)
         {
             if (kup != null)
             {
-                kup.gameObject.SetActive(true);
-                RectTransform rect = kup.GetComponent<RectTransform>();
-                
-                OrijinalPozisyon orijPoz = kup.GetComponent<OrijinalPozisyon>();
-                // Image rengini ellemeyelim, sadece yazıyı düzeltelim
-                
-                if (kup.harfYazisi != null)
-                {
-                    Color c = kup.harfYazisi.color;
-                    c.a = 1f;
-                    kup.harfYazisi.color = c;
-                }
-                
-                // Şeffaf cam haline geri döndür (Beyaz kalmasını engeller)
-                kup.SetSeciliDurum(false); 
-                
-                rect.localScale = Vector3.zero;
-                rect.localRotation = Quaternion.identity;
-                
-                char yeniHarf = gridGen.RastgeleHarfAl();
-                Color yeniRenk = gridGen.RastgeleRenkAl();
-                kup.VeriAta(yeniHarf, yeniRenk);
-                
-                StartCoroutine(KupBelirmeAnimasyonu(kup));
+                CamKirilmaEfektiOlustur(kup.transform.position, kup.GetKupRengi());
+                kup.SetSeciliDurum(false);
             }
         }
         
+        // 4. KÜÇÜLME ANİMASYONU - Scale 0'a düşür (SetActive KULLANMA!)
+        float shrinkTime = 0.2f;
+        float elapsed = 0f;
+        
+        while (elapsed < shrinkTime)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / shrinkTime;
+            float scale = 1f - t;
+            
+            foreach (KupData kup in patlayanKupler)
+            {
+                if (kup != null)
+                {
+                    kup.GetComponent<RectTransform>().localScale = Vector3.one * scale;
+                }
+            }
+            yield return null;
+        }
+        
+        // 5. SCALE = 0 (GİZLEME YOK - Grid Layout bozulmasın!)
+        foreach (KupData kup in patlayanKupler)
+        {
+            if (kup != null)
+            {
+                kup.GetComponent<RectTransform>().localScale = Vector3.zero;
+                
+                // Yazıyı da gizle
+                if (kup.harfYazisi != null)
+                {
+                    Color c = kup.harfYazisi.color;
+                    c.a = 0f;
+                    kup.harfYazisi.color = c;
+                }
+            }
+        }
+        
+        // 6. PUAN EKLE - ComboManager carpani uygula
+        int finalPuan = kazanilanPuan;
+        if (ComboManager.Instance != null)
+        {
+            finalPuan = ComboManager.Instance.PuanHesapla(kazanilanPuan);
+        }
+        toplamPuan += finalPuan;
+        GuncellePuanYazisi();
+        
+        // 7. TIMER - Dusuk suredeyse puan kadar saniye ekle
+        if (TimerManager.Instance != null)
+        {
+            TimerManager.Instance.AddTimeIfLow(kazanilanPuan);
+        }
+        
+        // 8. KISA BEKLEME
+        yield return new WaitForSeconds(0.15f);
+        
+        // 9. YENİ HARF ATA
+        foreach (KupData kup in patlayanKupler)
+        {
+            if (kup != null)
+            {
+                char yeniHarf = gridGen.RastgeleHarfAl();
+                Color yeniRenk = gridGen.RastgeleRenkAl();
+                kup.VeriAta(yeniHarf, yeniRenk);
+            }
+        }
+        
+        // 10. SIRAYLA POP-IN ANİMASYONU
+        for (int i = 0; i < patlayanKupler.Count; i++)
+        {
+            KupData kup = patlayanKupler[i];
+            if (kup != null)
+            {
+                StartCoroutine(PopInAnimasyonu(kup, i * 0.06f));
+            }
+        }
+        
+        // 11. ANİMASYONLARIN BİTMESİNİ BEKLE
+        float toplamAnimSuresi = 0.4f + (patlayanKupler.Count * 0.06f);
+        yield return new WaitForSeconds(toplamAnimSuresi);
+        
+        // 12. TEMİZLİK
         TemizleSecim();
         animasyonDevam = false;
+    }
+    
+    /// <summary>
+    /// Basit pop-in animasyonu - sadece scale değiştirir
+    /// </summary>
+    System.Collections.IEnumerator PopInAnimasyonu(KupData kup, float gecikme)
+    {
+        // Gecikme
+        if (gecikme > 0f)
+            yield return new WaitForSeconds(gecikme);
+        
+        RectTransform rect = kup.GetComponent<RectTransform>();
+        
+        // Yazı alpha'sını geri getir
+        if (kup.harfYazisi != null)
+        {
+            Color c = kup.harfYazisi.color;
+            c.a = 1f;
+            kup.harfYazisi.color = c;
+        }
+        
+        float sure = 0.3f;
+        float elapsed = 0f;
+        
+        while (elapsed < sure)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / sure;
+            
+            // Elastic-out benzeri: hızlı büyü, biraz aş, geri gel
+            float scale;
+            if (t < 0.6f)
+            {
+                // 0 -> 1.15 arası hızlı büyüme
+                scale = Mathf.Lerp(0f, 1.15f, t / 0.6f);
+            }
+            else
+            {
+                // 1.15 -> 1.0 arası yavaş küçülme (bounce)
+                float bounceT = (t - 0.6f) / 0.4f;
+                scale = Mathf.Lerp(1.15f, 1f, bounceT);
+            }
+            
+            rect.localScale = Vector3.one * scale;
+            yield return null;
+        }
+        
+        // Final scale
+        rect.localScale = Vector3.one;
     }
 
     void CamKirilmaEfektiOlustur(Vector3 pozisyon, Color renk)
@@ -575,32 +685,6 @@ public class UILineDrawer : MonoBehaviour
         }
     }
 
-    // ==================== PATLAMA ====================
-
-    // (Eski animasyon metodları silindi - Yeni sistem KupleriPatlat içinde entegre)
-
-    System.Collections.IEnumerator KupBelirmeAnimasyonu(KupData kup)
-    {
-        RectTransform rect = kup.GetComponent<RectTransform>();
-        
-        float sure = 0.3f;
-        float gecen = 0f;
-        
-        while (gecen < sure)
-        {
-            gecen += Time.deltaTime;
-            float t = gecen / sure;
-            
-            float scale = t < 0.65f 
-                ? Mathf.Lerp(0f, 1.2f, t / 0.65f)
-                : Mathf.Lerp(1.2f, 1f, (t - 0.65f) / 0.35f);
-            
-            rect.localScale = Vector3.one * scale;
-            yield return null;
-        }
-        
-        rect.localScale = Vector3.one;
-    }
 
     // ==================== YANLIŞ KELİME EFEKTİ ====================
 

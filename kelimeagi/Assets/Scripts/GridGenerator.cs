@@ -72,7 +72,34 @@ public class GridGenerator : MonoBehaviour
             }
         }
         
+        // Grid Layout pozisyonlarını kayıt etmek için bir frame bekle
+        StartCoroutine(PozisyonlariKaydet());
+        
         HarfleriYenidenOlustur();
+    }
+    
+    IEnumerator PozisyonlariKaydet()
+    {
+        // Layout hesaplaması için bir frame bekle
+        yield return null;
+        yield return null; // İki frame bekle emin olalım
+        
+        // Her küpün pozisyonunu OrijinalPozisyon component'ine kaydet
+        foreach (KupData kup in tumKupler)
+        {
+            if (kup != null)
+            {
+                RectTransform rect = kup.GetComponent<RectTransform>();
+                OrijinalPozisyon orijPoz = kup.GetComponent<OrijinalPozisyon>();
+                
+                if (orijPoz == null)
+                {
+                    orijPoz = kup.gameObject.AddComponent<OrijinalPozisyon>();
+                }
+                
+                orijPoz.pozisyon = rect.anchoredPosition;
+            }
+        }
     }
 
     public void HarfleriYenidenOlustur()

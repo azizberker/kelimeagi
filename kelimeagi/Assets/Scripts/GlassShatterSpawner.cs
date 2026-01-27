@@ -2,8 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Spawns a glass shatter particle effect at a given position.
-/// All particle settings come from prefab - only sorting is applied from code.
-/// Assign the shatterPrefab in the Inspector.
+/// Applies color to particle system.
 /// </summary>
 public class GlassShatterSpawner : MonoBehaviour
 {
@@ -11,27 +10,36 @@ public class GlassShatterSpawner : MonoBehaviour
     public ParticleSystem shatterPrefab;
 
     /// <summary>
-    /// Spawns the shatter effect at the given position.
-    /// All settings come from prefab - only sorting is modified.
+    /// Spawns the shatter effect at the given position with specified color.
     /// </summary>
-    /// <param name="position">World position to spawn the effect.</param>
-    /// <param name="color">Not used - prefab color is used instead.</param>
     public void Spawn(Vector3 position, Color color)
     {
         if (shatterPrefab == null)
         {
-            Debug.LogWarning("GlassShatterSpawner: shatterPrefab is not assigned!");
             return;
         }
 
         // Instantiate the prefab
         ParticleSystem ps = Instantiate(shatterPrefab, position, Quaternion.identity);
+        if (ps == null) return;
 
-        // Set stopAction so it auto-destroys
+        // Ana particle system rengini ayarla
         var main = ps.main;
+        main.startColor = color;
         main.stopAction = ParticleSystemStopAction.Destroy;
 
-        // Renderer sorting only (to appear above UI)
+        // Child particle sistemleri de varsa renk uygula
+        ParticleSystem[] allParticles = ps.GetComponentsInChildren<ParticleSystem>();
+        foreach (var childPs in allParticles)
+        {
+            if (childPs != null)
+            {
+                var childMain = childPs.main;
+                childMain.startColor = color;
+            }
+        }
+
+        // Renderer sorting (UI uzerinde gorunsun)
         ParticleSystemRenderer psr = ps.GetComponent<ParticleSystemRenderer>();
         if (psr != null)
         {
@@ -42,7 +50,7 @@ public class GlassShatterSpawner : MonoBehaviour
             }
         }
 
-        // Play the effect (if not already playing from playOnAwake)
+        // Play the effect
         if (!ps.isPlaying)
         {
             ps.Play();

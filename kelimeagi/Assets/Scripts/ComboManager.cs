@@ -1,13 +1,12 @@
 using UnityEngine;
-using System.Collections.Generic;
 
 public class ComboManager : MonoBehaviour
 {
     public static ComboManager Instance { get; private set; }
 
-    [Header("Görsel Referanslar")]
-    [Tooltip("Harflerin toplanacağı çerçeve alanı")]
-    public Transform cerceveAlani; // Harflerin gideceği Frame
+    [Header("Gorsel Referanslar")]
+    [Tooltip("Harflerin toplanacagi cerceve alani")]
+    public Transform cerceveAlani;
     
     [Tooltip("Alev Efekti (Combo Modu)")]
     public ParticleSystem alevEfekti;
@@ -15,8 +14,8 @@ public class ComboManager : MonoBehaviour
     [Tooltip("Buz Efekti (Hata Modu)")]
     public ParticleSystem buzEfekti;
 
-    [Header("Combo Ayarları")]
-    public float comboSuresi = 10f; // 10 saniye içinde 3 kelime
+    [Header("Combo Ayarlari")]
+    public float comboSuresi = 10f;
     public int gerekenKelimeSayisi = 3;
 
     private int ardisikKelimeSayisi = 0;
@@ -24,37 +23,49 @@ public class ComboManager : MonoBehaviour
     private bool comboModuAktif = false;
     private bool buzModuAktif = false;
 
+    // Mevcut carpan
+    private float currentMultiplier = 1f;
+
     void Awake()
     {
+        // Singleton pattern
         if (Instance == null)
         {
             Instance = this;
         }
-        else
+        else if (Instance != this)
         {
             Destroy(gameObject);
+            return;
         }
     }
 
     void Update()
     {
-        // Combo süresi doldu mu kontrol et (Sadece combo modunda değilken sayaç işliyor)
+        // Combo suresi doldu mu kontrol et
         if (!comboModuAktif && ardisikKelimeSayisi > 0)
         {
             if (Time.time - sonKelimeZamani > comboSuresi)
             {
-                Sifirla(false); // Sessizce sıfırla
+                Sifirla(false);
             }
         }
+    }
+
+    /// <summary>
+    /// Dogru kelime bulundugunda cagrilir
+    /// </summary>
+    public void DogruKelime()
+    {
+        DogruKelime(0);
     }
 
     public void DogruKelime(int puan)
     {
         if (buzModuAktif)
         {
-            // Buz modundan çıkış
             BuzModunuKapat();
-            ardisikKelimeSayisi = 1; // Yeni seriye başla
+            ardisikKelimeSayisi = 1;
         }
         else
         {
@@ -63,51 +74,54 @@ public class ComboManager : MonoBehaviour
 
         sonKelimeZamani = Time.time;
 
-        // Combo kontrolü
+        // Combo kontrolu
         if (!comboModuAktif && ardisikKelimeSayisi >= gerekenKelimeSayisi)
         {
             ComboModunuAc();
         }
-
-        Debug.Log($"Doğru Kelime! Seri: {ardisikKelimeSayisi} - Combo Modu: {comboModuAktif}");
     }
 
+    /// <summary>
+    /// Yanlis kelime veya iptal durumunda cagrilir
+    /// </summary>
     public void YanlisKelime()
     {
         if (comboModuAktif)
         {
-            // Alevden Buza geçiş
             ComboModunuKapat();
             BuzModunuAc();
         }
         
-        Sifirla(true); // Seriyi sıfırla
+        Sifirla(true);
     }
 
+    /// <summary>
+    /// Ham puani combo carpani ile hesaplar
+    /// </summary>
     public int PuanHesapla(int hamPuan)
     {
         if (comboModuAktif)
         {
-            return hamPuan * 2; // Combodayken 2 kat puan!
+            return hamPuan * 2; // Combodayken 2 kat puan
         }
-        return hamPuan;
+        return Mathf.RoundToInt(hamPuan * currentMultiplier);
     }
 
     private void ComboModunuAc()
     {
         comboModuAktif = true;
+        currentMultiplier = 2f;
         
         if (alevEfekti != null)
         {
             alevEfekti.Play();
         }
-        
-        Debug.Log("🔥 COMBO MODU AKTİF! ÇERÇEVE ALEV ALDI! 🔥");
     }
 
     private void ComboModunuKapat()
     {
         comboModuAktif = false;
+        currentMultiplier = 1f;
         
         if (alevEfekti != null)
         {
@@ -124,8 +138,6 @@ public class ComboManager : MonoBehaviour
         {
             buzEfekti.Play();
         }
-        
-        Debug.Log("❄️ BUZ MODU! DONDUN! ❄️");
     }
 
     private void BuzModunuKapat()
@@ -142,7 +154,5 @@ public class ComboManager : MonoBehaviour
     private void Sifirla(bool hataYapildi)
     {
         ardisikKelimeSayisi = 0;
-        // Eğer hata yapılmadıysa (süre dolduysa) ve combo açık değilse sadece sayacı sıfırladık
-        // Eğer hata yapıldıysa yukarıda YanlisKelime içinde buz modunu zaten açtık
     }
 }
