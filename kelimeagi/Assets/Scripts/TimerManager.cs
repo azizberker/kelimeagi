@@ -67,6 +67,9 @@ public class TimerManager : MonoBehaviour
         StartTimer();
     }
 
+    // Performans icin - son gosterilen saniye
+    private int lastDisplayedSecond = -1;
+    
     void Update()
     {
         if (!isRunning) return;
@@ -74,8 +77,13 @@ public class TimerManager : MonoBehaviour
         // Sure azalt
         currentTime -= Time.deltaTime;
 
-        // UI guncelle
-        UpdateTimeDisplay();
+        // UI sadece saniye degistiginde guncelle (performans icin)
+        int currentSecond = Mathf.FloorToInt(currentTime);
+        if (currentSecond != lastDisplayedSecond)
+        {
+            lastDisplayedSecond = currentSecond;
+            UpdateTimeDisplay();
+        }
 
         // Sure bitti mi?
         if (currentTime <= 0f)

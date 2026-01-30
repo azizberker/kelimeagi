@@ -313,36 +313,48 @@ public class UILineDrawer : MonoBehaviour
 
     System.Collections.IEnumerator HarfTitremeEfekti(KupData kup)
     {
-        RectTransform rect = kup.GetComponent<RectTransform>();
+        // Cache RectTransform - GetComponent her frame cagrilmasin
+        RectTransform rect = kup.cachedRectTransform;
+        if (rect == null)
+        {
+            rect = kup.GetComponent<RectTransform>();
+            kup.cachedRectTransform = rect;
+        }
+        
         Vector3 orijinalPos = rect.anchoredPosition;
         Vector3 orijinalScale = rect.localScale;
         
         float sure = 0f;
+        int frameCounter = 0;
+        WaitForSeconds waitInterval = new WaitForSeconds(0.03f); // 33fps yerine 60fps
+        
         while (seciliKupler.Contains(kup) && suruklemeAktif)
         {
-            sure += Time.deltaTime;
+            sure += 0.03f;
+            frameCounter++;
             
-            // TİTREME (Shake): Sağa sola, yukarı aşağı çok hızlı oyna
-            float xOffset = Mathf.Sin(sure * 50f) * 4f; 
-            float yOffset = Mathf.Cos(sure * 45f) * 4f;
+            // Her 2 frame'de bir guncelle (performans icin)
+            if (frameCounter % 2 == 0)
+            {
+                float xOffset = Mathf.Sin(sure * 50f) * 4f; 
+                float yOffset = Mathf.Cos(sure * 45f) * 4f;
+                rect.anchoredPosition = orijinalPos + new Vector3(xOffset, yOffset, 0);
+                
+                float scale = 1.1f + Mathf.Sin(sure * 10f) * 0.05f;
+                rect.localScale = orijinalScale * scale;
+            }
             
-            rect.anchoredPosition = orijinalPos + new Vector3(xOffset, yOffset, 0);
-            
-            // Hafif Büyüme (Nefes alma)
-            float scale = 1.1f + Mathf.Sin(sure * 10f) * 0.05f;
-            rect.localScale = orijinalScale * scale;
-            
-            yield return null;
+            yield return waitInterval;
         }
         
-        // Bırakılınca veya seçim bitince
+        // Birakilinca veya secim bitince
         if (kup != null && rect != null)
         {
             rect.anchoredPosition = orijinalPos;
             if (!seciliKupler.Contains(kup))
             {
                 rect.localScale = orijinalScale;
-                kup.SetSeciliDurum(false); // Eski haline dön
+                kup.SetSeciliDurum(false);
             }
         }
     }

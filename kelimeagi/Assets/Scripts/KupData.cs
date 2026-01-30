@@ -26,6 +26,10 @@ public class KupData : MonoBehaviour
     [HideInInspector]
     public Color mevcutRenk = Color.white;
     
+    // Performans icin cached RectTransform
+    [HideInInspector]
+    public RectTransform cachedRectTransform;
+    
     // 2D Image icin baslangic alpha degeri
     private float initialAlpha = 1f;
     
@@ -39,6 +43,9 @@ public class KupData : MonoBehaviour
 
     void Awake()
     {
+        // RectTransform cache - performans icin
+        cachedRectTransform = GetComponent<RectTransform>();
+        
         // Image komponenti bul
         if (kupGoruntusu == null)
         {
