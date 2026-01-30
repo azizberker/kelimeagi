@@ -770,7 +770,7 @@ public class UILineDrawer : MonoBehaviour
     {
         if (puanYazisi != null)
         {
-            puanYazisi.text = $"Puan: {toplamPuan}";
+            puanYazisi.text = toplamPuan.ToString();
         }
     }
 
