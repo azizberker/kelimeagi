@@ -1,18 +1,29 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System;
 
 /// <summary>
-/// 6 harfli dogru kelimeler icin UI VFX tetikleyici.
-/// Canvas altindaki ComboPopupAnchor pozisyonunda VFX prefab spawn eder.
+/// Kelime uzunluguna gore farkli VFX prefablar spawn eder.
+/// Inspector'dan her uzunluk icin ayri prefab atanabilir.
 /// </summary>
 public class WordVfxTrigger : MonoBehaviour
 {
     public static WordVfxTrigger Instance { get; private set; }
 
+    [Serializable]
+    public class VfxConfig
+    {
+        [Tooltip("Bu VFX icin gereken harf sayisi")]
+        public int wordLength = 3;
+        
+        [Tooltip("Spawn edilecek VFX prefab")]
+        public GameObject prefab;
+    }
+
     [Header("VFX Ayarlari")]
-    [Tooltip("Spawn edilecek animasyonlu text VFX prefab")]
-    public GameObject vfxPrefab;
+    [Tooltip("Kelime uzunluguna gore VFX prefablari")]
+    public VfxConfig[] vfxConfigs;
     
     [Tooltip("VFX'in cikacagi pozisyon (ComboPopupAnchor)")]
     public RectTransform comboPopupAnchor;
@@ -22,10 +33,6 @@ public class WordVfxTrigger : MonoBehaviour
     
     [Tooltip("VFX'in ekranda kalma suresi")]
     public float lifeTime = 1.5f;
-
-    [Header("Kelime Ayarlari")]
-    [Tooltip("VFX tetiklemek icin gereken minimum harf sayisi")]
-    public int requiredLength = 6;
 
     // Ayni frame'de birden fazla spawn onlemek icin
     private string lastSpawnedWord = "";
@@ -46,57 +53,47 @@ public class WordVfxTrigger : MonoBehaviour
     }
 
     /// <summary>
-    /// Kelime uzunlugunu kontrol eder, requiredLength harfli ise VFX spawn eder.
+    /// Kelime uzunluguna gore uygun VFX'i spawn eder.
     /// </summary>
-    /// <param name="word">Dogru bulunan kelime</param>
     public void TryShowVfx(string word)
     {
-        Debug.Log($"[WordVfxTrigger] TryShowVfx cagirildi: '{word}', Uzunluk: {word?.Length ?? 0}, Gereken: {requiredLength}");
-        
         // Null veya bos kontrol
-        if (string.IsNullOrEmpty(word))
-        {
-            Debug.Log("[WordVfxTrigger] Kelime bos veya null!");
-            return;
-        }
+        if (string.IsNullOrEmpty(word)) return;
         
-        // Uzunluk kontrolu
-        if (word.Length != requiredLength)
-        {
-            Debug.Log($"[WordVfxTrigger] Uzunluk eslesmiyor: {word.Length} != {requiredLength}");
-            return;
-        }
+        // Config dizisi kontrolu
+        if (vfxConfigs == null || vfxConfigs.Length == 0) return;
         
         // Ayni kelime tekrar spawn onleme (0.5 saniye icinde)
-        if (word == lastSpawnedWord && Time.time - lastSpawnTime < 0.5f)
+        if (word == lastSpawnedWord && Time.time - lastSpawnTime < 0.5f) return;
+        
+        // Kelime uzunluguna uygun config'i bul
+        GameObject prefabToSpawn = null;
+        foreach (var config in vfxConfigs)
         {
-            Debug.Log("[WordVfxTrigger] Ayni kelime tekrar spawn engellendi!");
-            return;
+            if (config != null && config.prefab != null && word.Length == config.wordLength)
+            {
+                prefabToSpawn = config.prefab;
+                break;
+            }
         }
         
-        Debug.Log($"[WordVfxTrigger] VFX SPAWN EDILIYOR: {word}");
+        // Uygun prefab bulunamadiysa cik
+        if (prefabToSpawn == null) return;
         
         // VFX spawn et
-        SpawnVfx(word);
+        SpawnVfx(prefabToSpawn, word);
         
         // Kaydet
         lastSpawnedWord = word;
         lastSpawnTime = Time.time;
     }
 
-    private void SpawnVfx(string word)
+    private void SpawnVfx(GameObject prefab, string word)
     {
-        // Prefab kontrolu
-        if (vfxPrefab == null)
-        {
-            Debug.LogError("[WordVfxTrigger] vfxPrefab atanmamis!");
-            return;
-        }
-        
-        Debug.Log($"[WordVfxTrigger] Anchor world pos: {(comboPopupAnchor != null ? comboPopupAnchor.position.ToString() : "null")}");
+        if (prefab == null) return;
         
         // 3D Particle mi yoksa UI prefab mi kontrol et
-        bool is3DParticle = vfxPrefab.GetComponent<RectTransform>() == null;
+        bool is3DParticle = prefab.GetComponent<RectTransform>() == null;
         
         GameObject vfxInstance;
         
@@ -104,8 +101,7 @@ public class WordVfxTrigger : MonoBehaviour
         {
             // 3D Particle - World space'de anchor pozisyonunda olustur
             Vector3 worldPos = comboPopupAnchor.position;
-            vfxInstance = Instantiate(vfxPrefab, worldPos, Quaternion.identity);
-            Debug.Log($"[WordVfxTrigger] 3D Particle olusturuldu: {vfxInstance.name} pozisyon: {worldPos}");
+            vfxInstance = Instantiate(prefab, worldPos, Quaternion.identity);
         }
         else
         {
@@ -120,7 +116,7 @@ public class WordVfxTrigger : MonoBehaviour
                 parent = transform;
             }
             
-            vfxInstance = Instantiate(vfxPrefab, parent);
+            vfxInstance = Instantiate(prefab, parent);
             
             // RectTransform ayarla
             RectTransform vfxRect = vfxInstance.GetComponent<RectTransform>();
@@ -128,24 +124,16 @@ public class WordVfxTrigger : MonoBehaviour
             {
                 vfxRect.anchoredPosition = comboPopupAnchor.anchoredPosition;
                 vfxRect.localScale = Vector3.one;
-                Debug.Log($"[WordVfxTrigger] UI VFX pozisyon: {vfxRect.anchoredPosition}");
             }
         }
         
-        if (vfxInstance == null)
-        {
-            Debug.LogError("[WordVfxTrigger] Instantiate basarisiz!");
-            return;
-        }
+        if (vfxInstance == null) return;
         
-        Debug.Log($"[WordVfxTrigger] VFX olusturuldu: {vfxInstance.name}");
-        
-        // Eger prefab'da text varsa kelimeyi yazdir (opsiyonel)
+        // Eger prefab'da text varsa kelimeyi yazdir
         SetTextIfExists(vfxInstance, word);
         
         // Otomatik yok et
         Destroy(vfxInstance, lifeTime);
-        Debug.Log($"[WordVfxTrigger] {lifeTime} saniye sonra silinecek");
     }
 
     private void SetTextIfExists(GameObject obj, string word)

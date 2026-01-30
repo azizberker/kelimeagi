@@ -56,20 +56,23 @@ public class UILineDrawer : MonoBehaviour
     private float beklemeSuresi = 0f;
     private const float SECIM_BEKLEME = 0.15f; // 0.15 saniye bekleme
     
-    // Seçili harf önizleme sistemi
-    [Header("Önizleme Panel Ayarları")]
+    // Secili harf onizleme sistemi
+    [Header("Onizleme Panel Ayarlari")]
+    [Tooltip("Secilen harflerin gorunecegi panel (RectTransform)")]
+    public RectTransform letterPreviewPanel;
+    
+    [Tooltip("Onizleme icin kullanilacak kup prefab (bos birakilirsa sadece text gosterilir)")]
+    public GameObject letterPreviewPrefab;
+    
     public float harfOnizlemeBoyutu = 85f;
     public float harfOnizlemeAraligi = 12f;
-    public float panelYuksekligi = 110f;
-    public float panelYPozisyonu = 220f;
     
-    [Header("Önizleme Arka Plan Ayarları")]
-    [SerializeField] private Sprite onizlemeArkaplanSprite; // Custom themed background image
-    [SerializeField] private bool useSliced = true; // Use 9-slice if sprite has borders
-    [SerializeField] private Vector2 arkaplanPadding = new Vector2(0, 0); // Safe padding
-    [SerializeField] private Color arkaplanRengi = new Color(0.1f, 0.1f, 0.15f, 0.85f); // Fallback color if no sprite
+    [Tooltip("Onizleme harflerinin text boyutu")]
+    public float harfTextBoyutu = 48f;
     
-    private GameObject onizlemeKonteyner;
+    [Tooltip("Onizleme puan textinin boyutu")]
+    public float puanTextBoyutu = 20f;
+    
     private List<GameObject> onizlemeHarfler = new List<GameObject>();
 
     void Start()
@@ -974,88 +977,6 @@ public class UILineDrawer : MonoBehaviour
 
     // ==================== SEÇİLİ HARF ÖNİZLEME SİSTEMİ ====================
 
-    void OnizlemePaneliOlustur()
-    {
-        if (canvasRect == null) return;
-
-        // Ana konteyner
-        onizlemeKonteyner = new GameObject("OnizlemeKonteyner");
-        onizlemeKonteyner.transform.SetParent(canvasRect, false);
-
-        RectTransform konteynerRect = onizlemeKonteyner.AddComponent<RectTransform>();
-        konteynerRect.anchorMin = new Vector2(0.5f, 0f);
-        konteynerRect.anchorMax = new Vector2(0.5f, 0f);
-        konteynerRect.pivot = new Vector2(0.5f, 0f);
-        konteynerRect.anchoredPosition = new Vector2(0, panelYPozisyonu);
-        konteynerRect.sizeDelta = new Vector2(600, panelYuksekligi);
-
-        // Arka plan paneli
-        GameObject arkaPlanObj = new GameObject("BackgroundImage");
-        arkaPlanObj.transform.SetParent(onizlemeKonteyner.transform, false);
-        arkaPlanObj.transform.SetAsFirstSibling(); // Ensure it's behind letters
-
-        Image arkaPlanImg = arkaPlanObj.AddComponent<Image>();
-        arkaPlanImg.raycastTarget = false;
-        
-        // Use custom sprite if assigned, otherwise use fallback color
-        if (onizlemeArkaplanSprite != null)
-        {
-            arkaPlanImg.sprite = onizlemeArkaplanSprite;
-            arkaPlanImg.color = Color.white;
-            
-            // Use sliced mode if enabled and sprite has borders
-            if (useSliced && onizlemeArkaplanSprite.border != Vector4.zero)
-            {
-                arkaPlanImg.type = Image.Type.Sliced;
-            }
-            else
-            {
-                arkaPlanImg.type = Image.Type.Simple;
-            }
-        }
-        else
-        {
-            // Fallback: use solid color
-            arkaPlanImg.color = arkaplanRengi;
-        }
-
-        // Stretch to fill panel with optional padding
-        RectTransform arkaPlanRect = arkaPlanObj.GetComponent<RectTransform>();
-        arkaPlanRect.anchorMin = Vector2.zero;
-        arkaPlanRect.anchorMax = Vector2.one;
-        arkaPlanRect.offsetMin = arkaplanPadding; // Left, Bottom padding
-        arkaPlanRect.offsetMax = -arkaplanPadding; // Right, Top padding (negative)
-        arkaPlanRect.anchoredPosition = Vector2.zero;
-
-        // Harfler için konteyner
-        GameObject harflerKonteyner = new GameObject("HarflerKonteyner");
-        harflerKonteyner.transform.SetParent(onizlemeKonteyner.transform, false);
-        harflerKonteyner.tag = "Untagged";
-        harflerKonteyner.name = "HarflerKonteyner";
-
-        RectTransform harflerRect = harflerKonteyner.AddComponent<RectTransform>();
-        harflerRect.anchorMin = new Vector2(0.5f, 0.5f);
-        harflerRect.anchorMax = new Vector2(0.5f, 0.5f);
-        harflerRect.pivot = new Vector2(0.5f, 0.5f);
-        harflerRect.anchoredPosition = Vector2.zero;
-        harflerRect.sizeDelta = new Vector2(380, 80);
-
-        // HorizontalLayoutGroup ekle
-        HorizontalLayoutGroup layout = harflerKonteyner.AddComponent<HorizontalLayoutGroup>();
-        layout.childAlignment = TextAnchor.MiddleCenter;
-        layout.spacing = harfOnizlemeAraligi;
-        layout.childControlWidth = false;
-        layout.childControlHeight = false;
-        layout.childForceExpandWidth = false;
-        layout.childForceExpandHeight = false;
-    }
-
-    void OnizlemeyeHarfEkle(KupData veriKup)
-    {
-        // Önizleme sistemi devre dışı - ileride yeniden tasarlanacak
-        return;
-    }
-    
     void SetLayerRecursively(GameObject obj, int newLayer)
     {
         obj.layer = newLayer;
@@ -1063,21 +984,6 @@ public class UILineDrawer : MonoBehaviour
         {
             SetLayerRecursively(child.gameObject, newLayer);
         }
-    }
-
-    void GuncellePanelBoyutu()
-    {
-        if (onizlemeKonteyner == null) return;
-
-        RectTransform konteynerRect = onizlemeKonteyner.GetComponent<RectTransform>();
-        if (konteynerRect == null) return;
-
-        // Harf sayısına göre genişlik hesapla
-        int harfSayisi = onizlemeHarfler.Count;
-        float genislik = (harfSayisi * harfOnizlemeBoyutu) + ((harfSayisi - 1) * harfOnizlemeAraligi) + 40f; // 40 padding
-        genislik = Mathf.Max(genislik, 100f); // Minimum genişlik
-
-        konteynerRect.sizeDelta = new Vector2(genislik, panelYuksekligi);
     }
 
     System.Collections.IEnumerator OnizlemeHarfAnimasyonu(RectTransform rect)
@@ -1115,6 +1021,118 @@ public class UILineDrawer : MonoBehaviour
             rect.localScale = Vector3.one;
     }
 
+    void OnizlemeyeHarfEkle(KupData kup)
+    {
+        if (letterPreviewPanel == null || kup == null) return;
+        
+        GameObject harfObj;
+        
+        // Prefab varsa onu kullan
+        if (letterPreviewPrefab != null)
+        {
+            harfObj = Instantiate(letterPreviewPrefab, letterPreviewPanel);
+            harfObj.name = "PreviewLetter_" + kup.mevcutHarf;
+            
+            // KupData varsa harfi ve rengi ata
+            KupData previewKup = harfObj.GetComponent<KupData>();
+            if (previewKup != null)
+            {
+                previewKup.VeriAta(kup.mevcutHarf, kup.GetKupRengi());
+                
+                // Harf text boyutunu ayarla
+                if (previewKup.harfYazisi != null)
+                {
+                    previewKup.harfYazisi.fontSize = harfTextBoyutu;
+                }
+                
+                // Puan text boyutunu ayarla
+                if (previewKup.puanYazisi != null)
+                {
+                    previewKup.puanYazisi.fontSize = puanTextBoyutu;
+                }
+            }
+            else
+            {
+                // KupData yoksa TMP_Text ara ve boyutunu ayarla
+                TMPro.TMP_Text[] texts = harfObj.GetComponentsInChildren<TMPro.TMP_Text>();
+                foreach (var txt in texts)
+                {
+                    // Ilk text harf, ikinci puan olarak kabul et
+                    if (txt.name.ToLower().Contains("puan") || txt.name.ToLower().Contains("score"))
+                    {
+                        txt.fontSize = puanTextBoyutu;
+                    }
+                    else
+                    {
+                        txt.fontSize = harfTextBoyutu;
+                        txt.text = kup.mevcutHarf.ToString();
+                    }
+                }
+            }
+            
+            // RectTransform boyutunu ayarla
+            RectTransform rect = harfObj.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                rect.sizeDelta = new Vector2(harfOnizlemeBoyutu, harfOnizlemeBoyutu);
+                rect.localScale = Vector3.one;
+            }
+        }
+        else
+        {
+            // Prefab yoksa sadece text olustur
+            harfObj = new GameObject("PreviewLetter_" + kup.mevcutHarf);
+            harfObj.transform.SetParent(letterPreviewPanel, false);
+            
+            RectTransform rect = harfObj.AddComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(harfOnizlemeBoyutu, harfOnizlemeBoyutu);
+            
+            TMPro.TextMeshProUGUI tmpText = harfObj.AddComponent<TMPro.TextMeshProUGUI>();
+            tmpText.text = kup.mevcutHarf.ToString();
+            tmpText.fontSize = 56;
+            tmpText.alignment = TMPro.TextAlignmentOptions.Center;
+            tmpText.color = Color.white;
+            tmpText.fontStyle = TMPro.FontStyles.Bold;
+            tmpText.outlineWidth = 0.2f;
+            tmpText.outlineColor = new Color32(0, 0, 0, 200);
+        }
+        
+        onizlemeHarfler.Add(harfObj);
+        
+        // Tum harfleri ortala
+        MerkezleOnizlemeHarfleri();
+    }
+    
+    void MerkezleOnizlemeHarfleri()
+    {
+        int harfSayisi = onizlemeHarfler.Count;
+        if (harfSayisi == 0) return;
+        
+        // Toplam genislik hesapla
+        float toplamGenislik = (harfSayisi * harfOnizlemeBoyutu) + ((harfSayisi - 1) * harfOnizlemeAraligi);
+        
+        // Baslangic X pozisyonu (merkeze gore)
+        float baslangicX = -toplamGenislik / 2f;
+        
+        // Her harfi yeniden konumlandir
+        for (int i = 0; i < harfSayisi; i++)
+        {
+            GameObject harf = onizlemeHarfler[i];
+            if (harf == null) continue;
+            
+            RectTransform rect = harf.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                rect.anchorMin = new Vector2(0.5f, 0.5f);
+                rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                
+                float xPos = baslangicX + (i * (harfOnizlemeBoyutu + harfOnizlemeAraligi)) + (harfOnizlemeBoyutu / 2f);
+                rect.anchoredPosition = new Vector2(xPos, 0);
+            }
+        }
+    }
+    
     void TemizleOnizleme()
     {
         foreach (var harf in onizlemeHarfler)
